@@ -1,7 +1,7 @@
 {
   "name": "Ten Ring",
   "short_name": "Ten Ring",
-  "description": "Caderno de tiro de carabina de cano articulado: lê os furos do alvo, pontua e guarda treinos e provas.",
+  "description": "Caderno de tiro: lê os furos do alvo por fotografia, pontua, guarda treinos e provas e mostra a evolução.",
   "lang": "pt",
   "start_url": "./",
   "scope": "./",
