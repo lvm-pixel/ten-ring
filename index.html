@@ -231,7 +231,7 @@ table.dados { width: 100%; border-collapse: collapse; font-size: 13px; font-vari
 .campos { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
 .campos label, .campo label { font-size: 13px; color: var(--suave); margin-top: 8px; }
 .campo { display: grid; gap: 4px; }
-.campos input:not([type="checkbox"]), .campos select, .campos textarea, .eq-novo input, .a-alvo {
+.campos input:not([type="checkbox"]), .campos select, .campos textarea, .eq-novo input, .a-alvo, .vivo-ctl select {
   width: 100%; min-width: 0; min-height: 44px;
   padding: 9px 10px;
   background: var(--superficie); border: 1px solid var(--linha); border-radius: 10px;
@@ -302,7 +302,13 @@ table.dados { width: 100%; border-collapse: collapse; font-size: 13px; font-vari
 .barra { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .barra .botao { flex: 1 1 auto; }
 .zoom button { font-family: var(--f-dados); padding-inline: 10px; min-width: 42px; }
-.foto-ctl { border-style: dashed; box-shadow: none; }
+.foto-ctl, .vivo-ctl { border-style: dashed; box-shadow: none; }
+.vivo-video { position: absolute; left: 0; top: 0; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; }
+.vivo-topo { display: flex; align-items: flex-start; gap: 10px; }
+.vivo-topo p { min-width: 0; font-weight: 500; }
+.vivo-luz { flex: none; width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--suave); }
+.vivo-luz.pronto { background: var(--bom); }
+.vivo-luz.erro { background: var(--perigo); }
 .foto-manual { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; }
 .foto-manual label { grid-column: 1 / -1; font-size: 13px; color: var(--suave); }
 .foto-manual input[type="range"] { width: 100%; min-width: 0; accent-color: var(--acento); }
@@ -486,6 +492,16 @@ table.dados { width: 100%; border-collapse: collapse; font-size: 13px; font-vari
   font-weight: 500;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
 }
+.atualizar {
+  position: fixed; left: 16px; right: 16px; z-index: 30;
+  top: calc(8px + env(safe-area-inset-top, 0px));
+  max-width: 568px; margin-inline: auto;
+  min-height: 46px; padding: 10px 16px;
+  background: var(--acento); color: var(--sobre-acento);
+  border: 0; border-radius: 12px;
+  font-weight: 600; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
 @media (max-width: 380px) {
   #total { font-size: 62px; }
   .res-total output { font-size: 68px; }
@@ -529,7 +545,7 @@ table.dados { width: 100%; border-collapse: collapse; font-size: 13px; font-vari
 
     <section class="cartao prova" id="prova" hidden>
       <div class="prova-topo">
-        <div><span class="rotulo" id="relogio-rot">Tempo</span><output id="relogio">60:00</output></div>
+        <div><span class="rotulo" id="relogio-rot">Tempo</span><output id="relogio" aria-live="off">60:00</output></div>
         <div class="prova-conta"><span class="rotulo">Tiros de prova</span><output id="prova-conta">0/40</output></div>
       </div>
       <div class="medidor" id="prova-barra" role="progressbar" aria-label="Tiros de prova dados" aria-valuemin="0" aria-valuemax="40" aria-valuenow="0"><span id="prova-fio"></span></div>
@@ -564,6 +580,7 @@ table.dados { width: 100%; border-collapse: collapse; font-size: 13px; font-vari
     </section>
 
     <div class="alvo-caixa">
+      <video id="vivo-video" class="vivo-video" playsinline muted></video>
       <canvas id="tela" class="alvo-tela" aria-label="Alvo à escala. Toca para marcar um impacto e arrasta para afinar a posição."></canvas>
       <div class="aviso-foto" id="aviso-foto" hidden>A mover a fotografia</div>
     </div>
@@ -585,10 +602,30 @@ table.dados { width: 100%; border-collapse: collapse; font-size: 13px; font-vari
       </div>
       <button type="button" class="botao" id="desfazer" disabled><span data-icone="desfazer"></span><span class="rot">Desfazer</span></button>
       <button type="button" class="botao" id="btn-foto"><span data-icone="camara"></span><span class="rot">Ler foto</span></button>
+      <button type="button" class="botao" id="btn-vivo" aria-pressed="false"><span data-icone="video"></span><span class="rot">Ao vivo</span></button>
       <button type="button" class="botao perigo" id="limpar" disabled><span data-icone="lixo"></span><span class="rot">Limpar</span></button>
       <input type="file" id="foto" accept="image/*" hidden>
     </div>
     <p class="dica" id="dica"></p>
+
+    <div class="cartao vivo-ctl" id="vivo-ctl" hidden>
+      <div class="vivo-topo"><span class="vivo-luz" id="vivo-luz"></span><p id="vivo-estado"></p></div>
+      <p class="nota" id="vivo-nota" hidden></p>
+      <div class="campo" id="vivo-lente-caixa" hidden>
+        <label for="vivo-lente">Lente da câmara</label>
+        <select id="vivo-lente"></select>
+      </div>
+      <div class="foto-manual" id="vivo-zoom-caixa" hidden>
+        <label for="vivo-zoom">Zoom da câmara</label>
+        <input type="range" id="vivo-zoom">
+      </div>
+      <div class="botoes">
+        <button type="button" class="botao" id="vivo-menos" hidden>Afastar</button>
+        <button type="button" class="botao" id="vivo-ref" hidden>Nova referência</button>
+        <button type="button" class="botao" id="vivo-procurar" hidden>Procurar outro alvo</button>
+        <button type="button" class="botao perigo" id="vivo-parar" hidden>Parar câmara</button>
+      </div>
+    </div>
 
     <div class="cartao foto-ctl" id="foto-ctl" hidden>
       <p id="foto-estado"></p>
@@ -739,6 +776,10 @@ table.dados { width: 100%; border-collapse: collapse; font-size: 13px; font-vari
         <p>Pousa o alvo numa superfície clara e bem iluminada, sem sombras por cima, e fotografa-o de frente, a ocupar quase toda a imagem. Em Alvo, toca em Ler foto e escolhe a fotografia: a app encontra o disco preto, marca os furos e pontua. Confirma sempre a contagem. Dois tiros no mesmo furo contam como um, por isso acrescenta à mão o que faltar. Para corrigir um tiro, toca no valor dele por baixo do alvo e usa Mover ou Apagar.</p>
       </details>
       <details>
+        <summary>Ver os impactos ao vivo</summary>
+        <p>Na app instalada no telemóvel, toca em Ao vivo no ecrã do alvo e autoriza a câmara. Põe o telemóvel num tripé ou num apoio firme, apontado ao alvo, e toca no alvo na imagem até ele encher o ecrã. Quando a app o encontra, alinha a imagem pelo disco preto, fixa uma referência e passa a marcar sozinha cada impacto novo. Precisa de pelo menos 3 píxeis da câmara por furo: a 10 metros isso pede a teleobjetiva de 3× de um iPhone Pro, ou um telescópio com suporte para o telemóvel. Os furos no preto só se veem se o fundo atrás do alvo for claro. Confirma os tiros junto às linhas e corrige com Mover; se mexeres no telemóvel, toca em Nova referência.</p>
+      </details>
+      <details>
         <summary>Fazer uma prova</summary>
         <p>Escolhe Prova por cima do placar. Com relógio, a hora começa a contar e o ecrã fica aceso. Os tiros de ensaio não contam. Quando passares aos tiros de prova, toca em Começar os tiros de prova e usa Alvo novo sempre que trocares de cartão. Também podes registar uma prova já feita, sem relógio, lendo a fotografia de cada cartão pela ordem em que os usaste.</p>
       </details>
@@ -758,6 +799,8 @@ table.dados { width: 100%; border-collapse: collapse; font-size: 13px; font-vari
       <p class="nota">A pontuação segue o regulamento de carabina de cano articulado da Federação Portuguesa de Tiro, de 20 de outubro de 2021, e, nos outros alvos, as regras técnicas da ISSF. A leitura por fotografia é uma ajuda: em competição vale sempre a classificação oficial.</p>
     </section>
   </main>
+
+  <div class="toast" id="aviso" role="status" hidden></div>
 
   <nav class="tabs" aria-label="Secções">
     <div class="tabs-in">
@@ -967,6 +1010,119 @@ function centroDeRaioFixo(pts, cx, cy, r) {
   return [cx, cy];
 }
 
+/* ---- perspetiva ----
+   Uma fotografia tirada de lado nao so achata o alvo (isso a elipse do disco preto
+   ja corrige) como aproxima os aneis de um lado e afasta-os do outro. Para acertar
+   tambem os aneis de fora, mede-se a orla exterior de cada linha de anel impressa e
+   ajusta-se a transformacao projetiva que poe o disco e os aneis nos raios certos.
+   As matrizes sao 3 x 3 em linha: [a b c, d e f, g h i]. */
+function apl3(M, x, y) {
+  const w = M[6] * x + M[7] * y + M[8];
+  return [(M[0] * x + M[1] * y + M[2]) / w, (M[3] * x + M[4] * y + M[5]) / w];
+}
+function inv3(M) {
+  const a = M[0], b = M[1], c = M[2], d = M[3], e = M[4], f = M[5], g = M[6], h = M[7], i = M[8];
+  const A = e * i - f * h, B = f * g - d * i, C = d * h - e * g;
+  const det = a * A + b * B + c * C;
+  if (Math.abs(det) < 1e-12) return null;
+  return [A / det, (c * h - b * i) / det, (b * f - c * e) / det,
+    B / det, (a * i - c * g) / det, (c * d - a * f) / det,
+    C / det, (b * g - a * h) / det, (a * e - b * d) / det];
+}
+function amostraL(L, W, H, x, y) {
+  if (!(x >= 0 && y >= 0 && x < W - 1 && y < H - 1)) return -1;
+  const x0 = x | 0, y0 = y | 0, fx = x - x0, fy = y - y0, i = y0 * W + x0;
+  const a = L[i] + (L[i + 1] - L[i]) * fx, b = L[i + W] + (L[i + W + 1] - L[i + W]) * fx;
+  return a + (b - a) * fy;
+}
+// Minimos quadrados da transformacao que leva pontos do alvo (mm) aos da imagem (px).
+function ajustarH(pares, cx, cy, rpx) {
+  const A = new Float64Array(64), B = new Float64Array(8), l = new Float64Array(8);
+  const juntar = (alvo) => { for (let i = 0; i < 8; i++) { if (!l[i]) continue; B[i] += l[i] * alvo; for (let j = 0; j < 8; j++) A[i * 8 + j] += l[i] * l[j]; } };
+  for (const q of pares) {
+    const X = q[0] / 50, Y = q[1] / 50, x = (q[2] - cx) / rpx, y = (q[3] - cy) / rpx;
+    l[0] = X; l[1] = Y; l[2] = 1; l[3] = 0; l[4] = 0; l[5] = 0; l[6] = -x * X; l[7] = -x * Y; juntar(x);
+    l[0] = 0; l[1] = 0; l[2] = 0; l[3] = X; l[4] = Y; l[5] = 1; l[6] = -y * X; l[7] = -y * Y; juntar(y);
+  }
+  const h = resolver(A, B, 8);
+  if (!h) return null;
+  return [(rpx * h[0] + cx * h[6]) / 50, (rpx * h[1] + cx * h[7]) / 50, rpx * h[2] + cx,
+    (rpx * h[3] + cy * h[6]) / 50, (rpx * h[4] + cy * h[7]) / 50, rpx * h[5] + cy,
+    h[6] / 50, h[7] / 50, 1];
+}
+// Pontos da orla exterior da linha impressa de um anel, procurados perto de onde M diz que ela esta.
+function pontosDoAnel(L, W, H, M, raio, janela, contraste) {
+  const pts = [];
+  for (let a = 0; a < 360; a += 2) {
+    const ca = Math.cos(a * Math.PI / 180), sa = Math.sin(a * Math.PI / 180);
+    const p0 = apl3(M, (raio - janela) * ca, (raio - janela) * sa), p1 = apl3(M, (raio + janela) * ca, (raio + janela) * sa);
+    const n = Math.max(8, Math.ceil(Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / 0.5));
+    const vals = new Float32Array(n + 1);
+    let min = 256, iMin = -1, fora = false;
+    for (let k = 0; k <= n; k++) {
+      const v = amostraL(L, W, H, p0[0] + (p1[0] - p0[0]) * k / n, p0[1] + (p1[1] - p0[1]) * k / n);
+      if (v < 0) { fora = true; break; }
+      vals[k] = v;
+      if (v < min) { min = v; iMin = k; }
+    }
+    if (fora || iMin < 2 || iMin > n - 2) continue;          // sem linha, ou linha encostada a ponta da janela
+    const papel = mediana(vals);
+    if (papel - min < contraste) continue;
+    const meio = (min + papel) / 2;
+    let k = iMin;
+    while (k <= n && vals[k] < meio) k++;
+    if (k > n) continue;
+    const u = (k - 1 + (meio - vals[k - 1]) / Math.max(1e-6, vals[k] - vals[k - 1])) / n;
+    pts.push([p0[0] + (p1[0] - p0[0]) * u, p0[1] + (p1[1] - p0[1]) * u, raio]);
+  }
+  return pts;
+}
+function ajustarPerspetiva(L, W, H, el, def, pontosDisco, contraste) {
+  const Rmm = def.preto / 2;
+  const aneis = def.aneis.map((d) => d / 2).filter((r) => r > Rmm + 1e-6);
+  if (!aneis.length) return null;
+  // ponto de partida: a transformacao afim tirada da elipse do disco preto
+  const det = el.m[0] * el.m[3] - el.m[1] * el.m[2];
+  let M = [el.m[3] / det / Rmm, -el.m[1] / det / Rmm, el.cx, -el.m[2] / det / Rmm, el.m[0] / det / Rmm, el.cy, 0, 0, 1];
+  const rpx = Math.sqrt(el.maior * el.menor);
+  let pts = pontosDisco.map((q) => [q[0], q[1], Rmm]);
+  const refinar = (M0) => {
+    let Mi = M0, erro = 0;
+    for (let it = 0; it < 4; it++) {
+      const inv = inv3(Mi);
+      if (!inv) return null;
+      const pares = [], res = [];
+      for (const q of pts) {
+        const u = apl3(inv, q[0], q[1]), r = Math.hypot(u[0], u[1]) || 1e-9;
+        res.push(Math.abs(r - q[2]));
+        pares.push([u[0] * q[2] / r, u[1] * q[2] / r, q[0], q[1]]);       // o ponto mais perto, no raio certo
+      }
+      const corte = Math.max(2.5 * 1.4826 * mediana(res), 0.12);
+      const bons = pares.filter((_, i) => res[i] <= corte);
+      if (bons.length < 100) return null;
+      erro = Math.sqrt(res.filter((v) => v <= corte).reduce((s, v) => s + v * v, 0) / bons.length);
+      Mi = ajustarH(bons, el.cx, el.cy, rpx);
+      if (!Mi) return null;
+    }
+    return { M: Mi, erro };
+  };
+  // Dos aneis de dentro para os de fora: cada um procura-se onde o ajuste anterior o preve.
+  let usados = 0, erro = 0;
+  for (let k = 0; k < aneis.length; k++) {
+    const espaco = k === 0 ? aneis[0] - Rmm : aneis[k] - aneis[k - 1];
+    const novos = pontosDoAnel(L, W, H, M, aneis[k], 0.4 * espaco, contraste);
+    if (novos.length < 70) break;
+    const antes = pts;
+    pts = pts.concat(novos);
+    const r = refinar(M);
+    if (!r) { pts = antes; break; }
+    M = r.M; erro = r.erro; usados++;
+  }
+  if (usados < 2 || erro > 0.4) return null;
+  const inv = inv3(M);
+  return inv ? { M, inv, aneis: usados, erro } : null;
+}
+
 function analisar(rgba, W, H, def, calibre) {
   const falha = (motivo) => ({ ok: false, motivo });
   const n = W * H;
@@ -1054,6 +1210,7 @@ function analisar(rgba, W, H, def, calibre) {
   if (el.menor / el.maior < 0.6) return falha("a fotografia esta demasiado inclinada");
 
   const Rmm = def.preto / 2;
+  const persp = ajustarPerspetiva(L, W, H, el, def, pontos, Math.max(10, 0.12 * (Lp0 - Lb0)));
   const s = Math.sqrt(el.maior * el.menor) / Rmm;          // pixeis por milimetro
   const rFuro = (calibre / 2) * s;                           // raio do furo em pixeis
   if (rFuro < 3) return falha("o alvo esta demasiado pequeno na fotografia");
@@ -1194,8 +1351,10 @@ function analisar(rgba, W, H, def, calibre) {
       if (proximos.length >= 8) centro = centroDeRaioFixo(proximos, p.x, p.y, rAjuste);
       if (Math.hypot(centro[0] - p.x, centro[1] - p.y) > rFuro) centro = [p.x, p.y];
       const px = centro[0] + bx0, py = centro[1] + by0;
+      // Com a perspetiva corrigida os milimetros vem da transformacao projetiva; sem ela, da elipse.
       const u = normalizado(el, px, py);
-      furos.push({ x: Rmm * u[0], y: -Rmm * u[1], px, py, duvida, junto: !sozinho });
+      const q = persp ? apl3(persp.inv, px, py) : [Rmm * u[0], Rmm * u[1]];
+      furos.push({ x: q[0], y: -q[1], px, py, duvida, junto: !sozinho });
     }
   }
 
@@ -1205,6 +1364,9 @@ function analisar(rgba, W, H, def, calibre) {
     pxPorMm: s,
     eixos: [el.maior, el.menor],
     m: el.m,
+    // alvo (mm, x para a direita e y para baixo) -> imagem (px), e o inverso; null se nao se mediu a perspetiva
+    h: persp ? persp.M : null, hInv: persp ? persp.inv : null,
+    perspetiva: persp ? { aneis: persp.aneis, erro: persp.erro } : null,
     furos,
     escalaSuspeita,
     niveis: { preto: Lb, papel: Lp, satPapel: Sp, papelColorido },
@@ -1212,7 +1374,7 @@ function analisar(rgba, W, H, def, calibre) {
   };
 }
 
-raiz.DetetorAlvo = { analisar };
+raiz.DetetorAlvo = { analisar, ajustarElipse, componentes };
 })(typeof window !== "undefined" ? window : globalThis);
 /*DETETOR-FIM*/
 </script>
@@ -1223,7 +1385,7 @@ raiz.DetetorAlvo = { analisar };
 
 /* ---------- base: tabelas, formatos e ajudas para construir a pagina ---------- */
 
-const VERSAO = "2.0";
+const VERSAO = "2.1";
 const DATA_VERSAO = "25/11/2026";
 
 /* Dimensoes oficiais ISSF (Regras Tecnicas Gerais, 6.3.4): diametro de cada anel
@@ -1276,6 +1438,13 @@ function quando(iso) {
   const p = (n) => String(n).padStart(2, "0");
   return p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
 }
+/* Data no formato dos campos de data e hora da pagina: AAAA-MM-DDTHH:MM, hora local. */
+function paraCampoData(iso) {
+  const d = dataDe(iso);
+  if (!d) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "T" + p(d.getHours()) + ":" + p(d.getMinutes());
+}
 function chaveDia(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 function diaCurto(d) { return d.getDate() + " " + MESES[d.getMonth()]; }
 function diaComAno(d) { return diaCurto(d) + " " + d.getFullYear(); }
@@ -1327,6 +1496,7 @@ const ICONES = {
   caderno: "M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M9 3v18 M12.5 8h3.5 M12.5 12h3.5",
   analise: "M4 4v16h16 M7.5 15.5l3.5-4.5l3 2.5l4.5-6.5",
   mais: "M4.2 12a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 0 0-2.6 0z M10.7 12a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 0 0-2.6 0z M17.2 12a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 0 0-2.6 0z",
+  video: "M4 7h9a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z M15 10.6l6-3.6v10l-6-3.6",
   camara: "M4 8.5a2 2 0 0 1 2-2h1.6l1.2-1.7a1 1 0 0 1 .8-.4h4.8a1 1 0 0 1 .8.4l1.2 1.7H18a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z M12 9.6a3.2 3.2 0 1 0 0 6.4a3.2 3.2 0 0 0 0-6.4z",
   desfazer: "M9 14L4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 0 11H11",
   lixo: "M4 7h16 M10 11v6 M14 11v6 M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12 M9 7V4h6v3",
@@ -1509,6 +1679,7 @@ function filtrarSessoes(lista, f, agora) {
     if (f.tipo === "treino" && sessao.prova) return false;
     const t = Date.parse(sessao.criado);
     if (isNaN(t)) return false;
+    if (!dias) return !f.anterior;
     return t > inicio && t <= fim;
   });
 }
@@ -1689,7 +1860,8 @@ function provaNova() { return { fase: "espera", inicio: 0, fim: 0, cartoes: [] }
 const E = {
   alvo: "c14", calibre: 4.5, zoom: 1, tiros: [], sel: -1, mover: false, prov: null,
   arma: "", municao: "", local: "", notas: "", clique: "",
-  foto: null, fotoT: { auto: false, ox: 0, oy: 0, base: 1, mult: 1 }, moverFoto: false, detetados: null,
+  // foto e o que se desenha por baixo dos aneis; fotoBase e a fotografia tal como foi tirada
+  foto: null, fotoBase: null, fotoT: { auto: false, ox: 0, oy: 0, base: 1, mult: 1 }, moverFoto: false, detetados: null,
   modo: "treino", prova: provaNova(), cartao: 0,
   vista: "alvo", filtro: null, filtroTipo: "", mostrar: 30
 };
@@ -1703,7 +1875,10 @@ const V = { id: "", cartao: -1, ajustar: false, editar: false };
 
 let series = [];
 let pendentes = [];
-const Loja = { modo: "a-abrir", col: null, pronto: false, lento: false, configLida: false, aEnviar: false, downloads: null };
+const Loja = {
+  modo: "a-abrir", col: null, pronto: false, lento: false, falhou: false, aberta: null, downloads: null,
+  configLida: false, configAtualizado: 0, aEnviar: false, aGuardar: false, geracao: 0, porPintar: false
+};
 // Fora do claude.ai a app corre sozinha: guarda no dispositivo e entrega ficheiros diretamente.
 const AUTONOMA = !(window.claude && typeof window.claude.use === "function");
 
@@ -1989,7 +2164,7 @@ function inserirNoCartao(t) {
   for (let k = 0; k < E.tiros.length; k++) if (E.tiros[k].c > t.c) { pos = k; break; }
   E.tiros.splice(pos, 0, t);
 }
-function largarFoto() { E.sel = -1; E.mover = false; E.foto = null; E.detetados = null; E.moverFoto = false; }
+function largarFoto() { E.sel = -1; E.mover = false; E.foto = null; E.fotoBase = null; E.detetados = null; E.moverFoto = false; }
 function cartaoNovo(ensaio) {
   const ult = E.prova.cartoes.length - 1;
   const vazio = ult >= 0 && !E.tiros.some((t) => t.c === ult);
@@ -2008,7 +2183,7 @@ function comecarProva(comRelogio) {
 function anularProva() {
   E.prova = provaNova(); E.cartao = 0; E.tiros = [];
   largarFoto();
-  manterEcra(false);
+  manterEcra(vivoLigado());
   guardarRascunho();
 }
 
@@ -2058,12 +2233,19 @@ function gerirTique() {
 let tranca = null;
 async function manterEcra(ligar) {
   try {
-    if (ligar) { if (!tranca && navigator.wakeLock) tranca = await navigator.wakeLock.request("screen"); }
+    if (ligar) {
+      if (!tranca && navigator.wakeLock) {
+        const nova = await navigator.wakeLock.request("screen");
+        tranca = nova;
+        // o telemovel larga a tranca sozinho quando a app sai do ecra
+        if (nova.addEventListener) nova.addEventListener("release", () => { if (tranca === nova) tranca = null; });
+      }
+    }
     else if (tranca) { const t = tranca; tranca = null; await t.release(); }
   } catch (e) { tranca = null; }
 }
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && relogioACorrer()) { tranca = null; manterEcra(true); }
+  if (document.visibilityState === "visible" && (relogioACorrer() || vivoLigado())) { tranca = null; manterEcra(true); }
 });
 
 function pintarProva() {
@@ -2125,9 +2307,9 @@ $("prova-fase").addEventListener("click", () => {
   aviso("A partir de agora os tiros contam para a prova.");
 });
 $("prova-cartao").addEventListener("click", () => { cartaoNovo(E.prova.fase === "ensaio"); guardarRascunho(); pintar(); });
-$("prova-parar").addEventListener("click", () => { E.prova.fim = Date.now(); manterEcra(false); guardarRascunho(); pintar(); });
-$("cartao-ant").addEventListener("click", () => { if (E.cartao > 0) { E.cartao--; largarFoto(); pintar(); } });
-$("cartao-seg").addEventListener("click", () => { if (E.cartao < E.prova.cartoes.length - 1) { E.cartao++; largarFoto(); pintar(); } });
+$("prova-parar").addEventListener("click", () => { E.prova.fim = Date.now(); manterEcra(vivoLigado()); guardarRascunho(); pintar(); });
+$("cartao-ant").addEventListener("click", () => { if (E.cartao > 0) { E.cartao--; largarFoto(); guardarRascunho(); pintar(); } });
+$("cartao-seg").addEventListener("click", () => { if (E.cartao < E.prova.cartoes.length - 1) { E.cartao++; largarFoto(); guardarRascunho(); pintar(); } });
 
 /* ---------- ecra do alvo ---------- */
 
@@ -2148,7 +2330,9 @@ function pintarAlvo() {
   const vistos = tirosVistos();
   const selVisto = E.sel >= 0 ? vistos.indexOf(E.tiros[E.sel]) : -1;
   const lido = fotoLida();
-  kAtual = desenhar(cv, def, vistos, {
+  // Com a camara ligada e ainda sem alvo a seguir, o ecra mostra a imagem da camara.
+  if (vivoEmProcura()) pintarProcura();
+  else kAtual = desenhar(cv, def, vistos, {
     zoom: E.zoom, sel: selVisto, prov: E.prov, foto: E.foto, fotoT: E.fotoT,
     cal: E.calibre, numeros: true, centro: true, lupa: P.lupa,
     oculto: arrasto && arrasto.tipo === "mover" ? selVisto : -1,
@@ -2241,7 +2425,9 @@ function pintar() {
   }
   $("dica").textContent = E.mover && escolhido
     ? "A mover o tiro: arrasta no alvo e larga na posição certa."
-    : "No telemóvel, o ponto aparece acima do dedo e a lupa mostra a zona ampliada. Arrasta para afinar e larga para marcar.";
+    : vivoLigado()
+      ? "Ao vivo: a imagem é a da câmara, alinhada pelo disco preto. Podes marcar ou corrigir tiros com o dedo por cima dela."
+      : "No telemóvel, o ponto aparece acima do dedo e a lupa mostra a zona ampliada. Arrasta para afinar e larga para marcar.";
 
   /* agrupamento */
   const leitura = $("leitura");
@@ -2269,13 +2455,15 @@ function pintar() {
   $("limpar").hidden = prova;
   $("limpar").disabled = E.tiros.length === 0 && !E.foto;
   const guardar = $("guardar");
-  guardar.textContent = prova ? "Guardar prova" : "Guardar série";
-  guardar.disabled = prova ? !(st.n > 0 && st.n <= regra.prova) : st.n === 0;
+  guardar.textContent = Loja.aGuardar ? "A guardar…" : !prova ? "Guardar série" : st.n > 0 && st.n < regra.prova ? "Guardar prova incompleta" : "Guardar prova";
+  guardar.disabled = Loja.aGuardar || (prova ? !(st.n > 0 && st.n <= regra.prova) : st.n === 0);
   document.querySelectorAll(".zoom button").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.zoom) === E.zoom)));
 
   /* fotografia */
-  $("foto-ctl").hidden = !E.foto;
-  if (E.foto) {
+  const comFoto = !!E.foto && !vivoLigado();
+  $("foto-ctl").hidden = !comFoto;
+  pintarVivo();
+  if (comFoto) {
     const auto = !!E.fotoT.auto;
     let estado;
     if (auto && E.detetados && E.detetados.suspeita) {
@@ -2296,6 +2484,14 @@ function pintar() {
   $("aviso-foto").hidden = !(E.foto && E.moverFoto);
   $("foto-mover").setAttribute("aria-pressed", String(E.moverFoto));
   $("ficha-resumo").textContent = [regra.curto, E.arma, E.municao].filter(Boolean).join(" · ");
+}
+
+/* Um tiro guarda-se com a posicao arredondada ao centesimo de milimetro e pontua-se
+   por essa posicao, para valer o mesmo quando a app o voltar a ler. */
+function tiroFixo(x, y) {
+  const fx = r2(x), fy = r2(y);
+  const p = pontuar(ALVOS[E.alvo], Math.hypot(fx, fy), E.calibre);
+  return { x: fx, y: fy, v: p.v, i: p.interior ? 1 : 0 };
 }
 
 function recalcularTiros() {
@@ -2325,6 +2521,7 @@ function provisorio(ev) {
 cv.addEventListener("pointerdown", (ev) => {
   ev.preventDefault();
   try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* sem captura */ }
+  if (vivoEmProcura()) { vivoTocar(ev); return; }
   if (E.foto && E.moverFoto) {
     arrasto = { tipo: "foto", x: ev.clientX, y: ev.clientY };
     return;
@@ -2357,12 +2554,12 @@ cv.addEventListener("pointerup", () => {
   if (!arrasto) return;
   const tipo = arrasto.tipo;
   if (tipo === "tiro" && E.prov) {
-    const novo = { x: r2(E.prov.x), y: r2(E.prov.y), v: E.prov.v, i: E.prov.i };
+    const novo = tiroFixo(E.prov.x, E.prov.y);
     if (emProva()) { novo.c = E.cartao; novo.e = cartaoAtual().e ? 1 : 0; inserirNoCartao(novo); }
     else E.tiros.push(novo);
     E.sel = -1;
   } else if (tipo === "mover" && E.prov && E.tiros[E.sel]) {
-    Object.assign(E.tiros[E.sel], { x: r2(E.prov.x), y: r2(E.prov.y), v: E.prov.v, i: E.prov.i });
+    Object.assign(E.tiros[E.sel], tiroFixo(E.prov.x, E.prov.y));
     E.mover = false;
   }
   arrasto = null; E.prov = null;
@@ -2392,10 +2589,14 @@ $("fechar-sel").addEventListener("click", () => { E.sel = -1; E.mover = false; p
 function doisPassos(b, confirmar, acao) {
   const rot = (b.querySelector && b.querySelector(".rot")) || b;
   const original = rot.textContent;
-  let relogio = null;
+  let relogio = null, armadoEm = 0;
   const repor = () => { b.dataset.armado = ""; rot.textContent = original; b.classList.remove("armado"); };
   b.addEventListener("click", () => {
-    if (b.dataset.armado === "1") { clearTimeout(relogio); repor(); acao(); return; }
+    if (b.dataset.armado === "1") {
+      if (Date.now() - armadoEm < 400) return;        // o segundo toque de um toque duplo nao conta
+      clearTimeout(relogio); repor(); acao(); return;
+    }
+    armadoEm = Date.now();
     b.dataset.armado = "1"; rot.textContent = confirmar; b.classList.add("armado");
     relogio = setTimeout(repor, 3500);
   });
@@ -2404,13 +2605,14 @@ doisPassos($("limpar"), "Confirmar", () => { limparSerie(); pintar(); });
 doisPassos($("prova-anular"), "Confirmar anular", () => { anularProva(); pintar(); });
 function limparSerie() {
   E.tiros = []; E.sel = -1; E.mover = false; E.notas = ""; $("f-notas").value = "";
-  E.foto = null; E.moverFoto = false; E.detetados = null;
+  E.foto = null; E.fotoBase = null; E.moverFoto = false; E.detetados = null;
   guardarRascunho();
 }
 
 /* fotografia do alvo */
 $("btn-foto").addEventListener("click", () => {
   if (emProva() && E.prova.fase === "espera") { aviso("Começa a prova para ler alvos."); return; }
+  if (vivoLigado()) desligarVivo();
   $("foto").click();
 });
 $("foto").addEventListener("change", () => {
@@ -2426,7 +2628,8 @@ $("foto").addEventListener("change", () => {
     tela.height = Math.round(img.naturalHeight * f);
     tela.getContext("2d").drawImage(img, 0, 0, tela.width, tela.height);
     URL.revokeObjectURL(url);
-    E.foto = tela;
+    E.foto = tela; E.fotoBase = tela;
+    E.fotoT = { auto: false, ox: 0, oy: 0, base: 1, mult: 1 };
     $("foto").value = "";
     aviso("A ler o alvo…");
     setTimeout(() => lerFoto(false), 40);
@@ -2445,36 +2648,72 @@ function fotoManual() {
   } else {
     E.fotoT = { auto: false, ox: 0, oy: 0, mult: 1, base: def.aneis[def.aneis.length - 1] * 1.3 / Math.min(E.foto.width, E.foto.height) };
   }
+  E.fotoT.aMao = true;
   E.moverFoto = true;
   $("foto-tam").value = "0";
+}
+
+/* Com a perspetiva medida mostra-se a fotografia ja endireitada: cada ponto do
+   ecra vai buscar a cor ao sitio certo da fotografia, e os aneis desenhados caem
+   em cima dos impressos ate ao anel 1. M leva milimetros do alvo a pixeis da foto. */
+function endireitarFoto(dados, W, H, M, def) {
+  const T = 900, k = T / (def.aneis[def.aneis.length - 1] * 1.08);      // pixeis por milimetro
+  const tela = document.createElement("canvas");
+  tela.width = T; tela.height = T;
+  const c = tela.getContext("2d"), imagem = c.createImageData(T, T), o = imagem.data, linha = W * 4;
+  for (let j = 0; j < T; j++) {
+    const Y = (j + 0.5 - T / 2) / k;
+    for (let i = 0; i < T; i++) {
+      const X = (i + 0.5 - T / 2) / k, w = M[6] * X + M[7] * Y + M[8];
+      const x = (M[0] * X + M[1] * Y + M[2]) / w, y = (M[3] * X + M[4] * Y + M[5]) / w;
+      if (!(x >= 0 && y >= 0 && x < W - 1 && y < H - 1)) continue;      // fora da fotografia: fica transparente
+      const x0 = x | 0, y0 = y | 0, fx = x - x0, fy = y - y0, p = (y0 * W + x0) * 4, q = (j * T + i) * 4;
+      for (let cor = 0; cor < 3; cor++) {
+        const a = dados[p + cor] + (dados[p + 4 + cor] - dados[p + cor]) * fx;
+        const b = dados[p + linha + cor] + (dados[p + linha + 4 + cor] - dados[p + linha + cor]) * fx;
+        o[q + cor] = a + (b - a) * fy;
+      }
+      o[q + 3] = 255;
+    }
+  }
+  c.putImageData(imagem, 0, 0);
+  return { tela, k, lado: T };
 }
 
 /* Le o alvo na fotografia: encontra o disco preto, tira dai a escala e o centro,
    e localiza os furos. Com substituir = true troca os tiros ja marcados. */
 function lerFoto(substituir) {
-  if (!E.foto) return;
+  const base = E.fotoBase || E.foto;
+  if (!base) return;
   const def = ALVOS[E.alvo];
-  let res;
+  let res, px = null;
   try {
-    const px = E.foto.getContext("2d").getImageData(0, 0, E.foto.width, E.foto.height);
-    res = window.DetetorAlvo.analisar(px.data, E.foto.width, E.foto.height, def, E.calibre);
+    px = base.getContext("2d").getImageData(0, 0, base.width, base.height);
+    res = window.DetetorAlvo.analisar(px.data, base.width, base.height, def, E.calibre);
   } catch (e) {
     res = { ok: false, motivo: "não foi possível analisar a imagem" };
   }
+  const aMao = !!(E.fotoT && E.fotoT.aMao);
   if (!res.ok) {
-    E.fotoT = { auto: false };
-    fotoManual();
+    // Ja alinhada a mao: fica como esta. So a primeira falha e que prepara o alinhamento manual.
+    if (!aMao) { E.foto = base; E.fotoT = { auto: false }; fotoManual(); }
     E.detetados = null;
     pintar();
     aviso("Não li o alvo sozinho: " + res.motivo + ". Alinha a fotografia à mão.");
     return;
   }
+  E.foto = base;
   E.fotoT = { auto: true, m: res.m, cx: res.centro.x, cy: res.centro.y, Rmm: def.preto / 2, pxPorMm: res.pxPorMm };
+  if (res.h) {
+    try {
+      const direita = endireitarFoto(px.data, base.width, base.height, res.h, def);
+      const q = 1 / (direita.k * def.preto / 2);
+      E.foto = direita.tela;
+      E.fotoT = { auto: true, m: [q, 0, 0, q], cx: direita.lado / 2, cy: direita.lado / 2, Rmm: def.preto / 2, pxPorMm: direita.k };
+    } catch (e) { /* fica a fotografia original, alinhada pela elipse */ }
+  }
   E.moverFoto = false;
-  const achados = res.furos.map((f) => {
-    const p = pontuar(def, Math.hypot(f.x, f.y), E.calibre);
-    return { x: r2(f.x), y: r2(f.y), v: p.v, i: p.interior ? 1 : 0 };
-  }).sort((a, b) => b.v - a.v);
+  const achados = res.furos.map((f) => tiroFixo(f.x, f.y)).sort((a, b) => b.v - a.v);
   E.detetados = { n: achados.length, juntos: res.furos.some((f) => f.junto), duvida: res.furos.some((f) => f.duvida), suspeita: !!res.escalaSuspeita };
   if (res.escalaSuspeita) {
     // A escala vem do disco preto do alvo escolhido. Se os furos nao batem com o
@@ -2505,8 +2744,10 @@ function lerFoto(substituir) {
 
 $("foto-tam").addEventListener("input", () => { E.fotoT.mult = Math.pow(2, Number($("foto-tam").value) / 40); pintarAlvo(); });
 $("foto-mover").addEventListener("click", () => { E.moverFoto = !E.moverFoto; pintar(); });
-$("foto-tirar").addEventListener("click", () => { E.foto = null; E.moverFoto = false; E.detetados = null; pintar(); });
-$("foto-detetar").addEventListener("click", () => lerFoto(true));
+$("foto-tirar").addEventListener("click", () => { E.foto = null; E.fotoBase = null; E.moverFoto = false; E.detetados = null; pintar(); });
+// "Repor furos detetados" troca os tiros pelos da leitura; "Tentar ler de novo", com a
+// fotografia alinhada a mao, nao mexe nos tiros que ja la estao.
+$("foto-detetar").addEventListener("click", () => lerFoto(!!E.fotoT.auto));
 $("foto-manual").addEventListener("click", () => { if (E.foto) { fotoManual(); pintar(); } });
 
 /* ficha da sessao */
@@ -2550,17 +2791,22 @@ $("f-alvo").addEventListener("change", () => {
   E.alvo = $("f-alvo").value;
   E.calibre = ALVOS[E.alvo].calibre;
   $("f-cal").value = String(E.calibre);
-  E.zoom = 1; E.foto = null; E.moverFoto = false; E.detetados = null;
+  const fotografia = vivoLigado() ? null : E.fotoBase;
+  E.zoom = 1; E.foto = fotografia; E.fotoBase = fotografia; E.moverFoto = false; E.detetados = null;
+  if (fotografia) E.fotoT = { auto: false, ox: 0, oy: 0, mult: 1, base: ALVOS[E.alvo].aneis[ALVOS[E.alvo].aneis.length - 1] * 1.3 / Math.min(fotografia.width, fotografia.height) };
+  vivoReiniciar();
   recalcularTiros(); guardarRascunho(); guardarConfig(); pintar();
+  if (fotografia) { aviso("A ler a fotografia com o alvo novo…"); setTimeout(() => lerFoto(true), 40); }
 });
-$("f-cal").addEventListener("change", () => { E.calibre = Number($("f-cal").value); recalcularTiros(); guardarRascunho(); guardarConfig(); pintar(); });
+$("f-cal").addEventListener("change", () => { E.calibre = Number($("f-cal").value); vivoReiniciar(); recalcularTiros(); guardarRascunho(); guardarConfig(); pintar(); });
 [["f-arma", "arma"], ["f-mun", "municao"], ["f-local", "local"], ["f-clique", "clique"], ["f-notas", "notas"]].forEach(([id, campo]) => {
   $(id).addEventListener("change", () => {
     E[campo] = $(id).value.trim();
     if (campo === "arma") {
-      // Uma arma registada traz o valor do clique da sua mira.
+      // Cada arma tem o seu clique de mira: o da registada vem com ela, o da arma anterior nao serve.
       const arma = armaRegistada(E.arma);
-      if (arma && arma.clique > 0) { E.clique = String(arma.clique).replace(".", ","); $("f-clique").value = E.clique; }
+      E.clique = arma && arma.clique > 0 ? String(arma.clique).replace(".", ",") : "";
+      $("f-clique").value = E.clique;
     }
     if (campo === "clique") {
       const arma = armaRegistada(E.arma);
@@ -2581,6 +2827,18 @@ function gravarLocal(chave, valor) {
   try { localStorage.setItem(chave, JSON.stringify(valor)); return true; } catch (e) { return false; }
 }
 function novoId(prefixo) { return prefixo + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function pausa(ms) { return new Promise((r) => setTimeout(r, ms)); }
+/* Uma escrita que nao responde ao fim de um tempo conta como falta de ligacao. */
+function comPrazo(promessa, ms) {
+  return new Promise((resolver, rejeitar) => {
+    const t = setTimeout(() => rejeitar({ code: "unavailable", message: "sem resposta" }), ms);
+    Promise.resolve(promessa).then((v) => { clearTimeout(t); resolver(v); }, (e) => { clearTimeout(t); rejeitar(e); });
+  });
+}
+function aEscrever() {
+  const a = document.activeElement;
+  return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName || ""));
+}
 
 /* rascunho: o que esta no ecra do alvo sobrevive a fechar a app */
 function guardarRascunho() {
@@ -2621,7 +2879,9 @@ function aplicarDados(d) {
   }
 }
 
-/* preferencias e equipamento: ficam no dispositivo e, no claude.ai, tambem na conta */
+/* ---------- preferencias e equipamento ----------
+   Ficam no dispositivo e, no claude.ai, tambem na conta (documento "config").
+   Cada copia leva a hora da ultima alteracao: quando diferem, vale a mais recente. */
 function limparEquipamento(lista, comClique) {
   const vistos = new Set();
   return (Array.isArray(lista) ? lista : []).filter((x) => x && typeof x.nome === "string" && x.nome.trim()).map((x) => {
@@ -2653,9 +2913,14 @@ function aplicarConfig(c, daNuvem) {
     EQ.municoes = limparEquipamento(e.municoes, false);
     EQ.semeado = !!e.semeado;
   }
+  if (!daNuvem && Number(c.atualizado) > 0) Loja.configAtualizado = Number(c.atualizado);
+}
+function gravarConfigLocal() {
+  return gravarLocal(CHAVE.config, { prefs: P, equip: EQ, atualizado: Loja.configAtualizado });
 }
 function guardarPrefs() {
-  gravarLocal(CHAVE.config, { prefs: P, equip: EQ });
+  Loja.configAtualizado = Date.now();
+  gravarConfigLocal();
   guardarConfig();
 }
 
@@ -2668,7 +2933,8 @@ function registarEquipamento(arma, municao) {
     lista.push(Object.assign({ id: novoId("e"), nome: n, notas: "" }, base));
     mudou = true;
   };
-  juntar1(EQ.armas, arma, { clique: 0 });
+  // uma arma nova fica com o clique que estiver na ficha, se for a arma da ficha
+  juntar1(EQ.armas, arma, { clique: String(arma || "").trim() === E.arma.trim() ? cliqueAtual() : 0 });
   juntar1(EQ.municoes, municao, {});
   return mudou;
 }
@@ -2683,128 +2949,207 @@ function semearEquipamento() {
 
 let configRelogio = null, configAEscrever = false, configSuja = false;
 function guardarConfig() {
+  configSuja = true;                       // fica marcada mesmo sem conta aberta: segue quando abrir
   if (Loja.modo !== "nuvem") return;
-  configSuja = true;
   clearTimeout(configRelogio);
   configRelogio = setTimeout(escreverConfig, 900);
 }
 async function escreverConfig() {
-  if (configAEscrever || !configSuja) return;
+  if (configAEscrever || !configSuja || Loja.modo !== "nuvem") return;
+  clearTimeout(configRelogio);
   configAEscrever = true; configSuja = false;
   try {
-    await Loja.col.doc("config").set({
-      tipo: "config", alvo: E.alvo, calibre: E.calibre, arma: E.arma, municao: E.municao, local: E.local, clique: E.clique,
+    await comPrazo(Loja.col.doc("config").set({
+      tipo: "config", atualizado: Loja.configAtualizado || Date.now(),
+      alvo: E.alvo, calibre: E.calibre, arma: E.arma, municao: E.municao, local: E.local, clique: E.clique,
       prefs: { objetivos: P.objetivos, lupa: P.lupa, nome: P.nome, clube: P.clube },
       equip: { armas: EQ.armas, municoes: EQ.municoes, semeado: EQ.semeado }
-    });
-  } catch (e) { /* as preferencias continuam validas neste ecra */ }
+    }), 8000);
+  } catch (e) {
+    configSuja = true;                     // nao chegou a conta: tenta-se outra vez quando houver ligacao
+    configAEscrever = false;
+    return;
+  }
   configAEscrever = false;
   if (configSuja) escreverConfig();
 }
+/* O documento "config" da conta chegou (ou mudou noutro dispositivo). */
+function receberConfig(config, daCache) {
+  let mudou = false;
+  const dela = Number(config.atualizado) || 0;
+  const primeira = !Loja.configLida;
+  if (primeira) {
+    Loja.configLida = true;
+    // A ficha (alvo, arma, municao) so vem da conta ao abrir, e so se nao houver nada em curso.
+    if (!E.tiros.length && !(emProva() && E.prova.fase !== "espera") && !aEscrever()) {
+      aplicarDados({ alvo: config.alvo, calibre: config.calibre, arma: config.arma, municao: config.municao, local: config.local, clique: config.clique });
+      fichaParaEcra();
+      mudou = true;
+    }
+  }
+  const maisRecente = dela > Loja.configAtualizado || (primeira && !dela && !Loja.configAtualizado);
+  if (maisRecente) {
+    if (aEscrever()) Loja.configLida = false;          // alguem esta a escrever: aplica-se no proximo aviso da conta
+    else {
+      aplicarConfig({ prefs: config.prefs, equip: config.equip }, true);
+      if (dela) Loja.configAtualizado = dela;
+      gravarConfigLocal();
+      mudou = true;
+    }
+  } else if (dela < Loja.configAtualizado && !daCache) {
+    configSuja = true;                                  // as deste dispositivo sao mais recentes: seguem para a conta
+  }
+  return mudou;
+}
+
+/* ---------- sessoes ---------- */
+
+function seriesDoDispositivo() {
+  const guardadas = lerLocal(CHAVE.series, []);
+  return Array.isArray(guardadas) ? guardadas : [];
+}
+/* Antes de mexer na lista do dispositivo le-se outra vez: a app pode estar aberta noutro separador. */
+function recarregarLocal() { if (Loja.modo === "local") series = seriesDoDispositivo(); }
 
 async function escreverSerie(id, corpo) {
   try {
-    await Loja.col.doc(id).set(corpo);
+    await comPrazo(Loja.col.doc(id).set(corpo), 8000);
   } catch (e) {
     if (!e || e.code !== "unavailable") throw e;
-    await new Promise((r) => setTimeout(r, 1200 + Math.random() * 900));
-    await Loja.col.doc(id).set(corpo);
+    await pausa(1200 + Math.random() * 900);
+    await comPrazo(Loja.col.doc(id).set(corpo), 8000);
   }
 }
 async function enviarPendentes() {
   if (Loja.aEnviar || Loja.modo !== "nuvem" || !pendentes.length) return;
   Loja.aEnviar = true;
-  const fila = pendentes.slice();
-  for (const p of fila) {
+  const geracao = Loja.geracao;
+  for (const p of pendentes.slice()) {
+    if (geracao !== Loja.geracao) break;
+    if (!pendentes.some((x) => x.id === p.id)) continue;           // apagada entretanto
     try {
       await escreverSerie(p.id, p.corpo);
-      pendentes = pendentes.filter((x) => x.id !== p.id);
-      gravarLocal(CHAVE.pendentes, pendentes);
-    } catch (e) { break; }
+    } catch (e) {
+      if (e && e.code === "unavailable") break;                    // sem ligacao: fica tudo para depois
+      continue;                                                    // o problema e deste documento: os outros seguem
+    }
+    if (geracao !== Loja.geracao || !pendentes.some((x) => x.id === p.id)) {
+      // Foi apagada enquanto seguia para a conta: tira-se de la tambem.
+      try { await comPrazo(Loja.col.doc(p.id).delete(), 8000); } catch (e) { /* fica para a proxima limpeza */ }
+      continue;
+    }
+    pendentes = pendentes.filter((x) => x.id !== p.id);
+    gravarLocal(CHAVE.pendentes, pendentes);
   }
   Loja.aEnviar = false;
-  refrescar();
+  refrescar(true);
 }
 
 async function guardarSerie() {
+  if (Loja.aGuardar) return;
   const prova = emProva(), def = ALVOS[E.alvo];
   const contam = prova ? tirosDeProva() : E.tiros;
   const st = estatisticas(contam);
   if (!st.n) return;
-  const corpo = {
-    tipo: "serie", criado: new Date().toISOString(), alvo: E.alvo, calibre: E.calibre,
-    arma: E.arma, municao: E.municao, local: E.local, notas: E.notas,
-    tiros: contam.map((t) => ({ x: t.x, y: t.y, v: t.v, i: t.i })),
-    n: st.n, total: st.total, inteiro: st.inteiro, interiores: st.interiores,
-    grupo: r2(st.disp), cx: r2(st.cx), cy: r2(st.cy)
-  };
-  if (prova) {
-    // Uma prova guarda tambem o ensaio, o alvo de papel de cada tiro, as series de 10 e a duracao.
-    corpo.prova = 1;
-    corpo.tiros = contam.map((t) => ({ x: t.x, y: t.y, v: t.v, i: t.i, c: t.c }));
-    corpo.ensaio = E.tiros.filter((t) => t.e).map((t) => ({ x: t.x, y: t.y, v: t.v, i: t.i, c: t.c }));
-    corpo.series = [];
-    for (let k = 0; k < contam.length; k += 10) {
-      const soma = contam.slice(k, k + 10).reduce((a, t) => a + valorNum(def, t.v), 0);
-      corpo.series.push(Math.round(soma * 10) / 10);
-    }
-    corpo.duracao = E.prova.inicio ? Math.round(((E.prova.fim || Date.now()) - E.prova.inicio) / 1000) : 0;
-  }
-  const nome = prova ? "Prova" : "Série";
-  const id = novoId("s");
-  $("guardar").disabled = true;
-  if (Loja.modo === "nuvem") {
-    try {
-      await escreverSerie(id, corpo);
-      aviso(nome + " guardada no caderno.");
-    } catch (e) {
-      pendentes.push({ id, corpo });
-      gravarLocal(CHAVE.pendentes, pendentes);
-      aviso("Sem ligação. Fica neste telefone até ser enviada.");
-    }
-  } else {
-    series.unshift(Object.assign({ id }, corpo));
-    if (!gravarLocal(CHAVE.series, series)) aviso("Este dispositivo não deixou guardar.");
-    else aviso(nome + " guardada neste dispositivo.");
-  }
-  if (registarEquipamento(E.arma, E.municao)) guardarPrefs();
-  if (prova) { E.notas = ""; $("f-notas").value = ""; anularProva(); }
-  else limparSerie();
+  Loja.aGuardar = true;
   pintar();
-  refrescar();
+  try {
+    // A conta ainda esta a abrir: espera-se por ela, para a sessao nao ficar num sitio onde depois ninguem a ve.
+    if (Loja.modo === "a-abrir" && Loja.aberta) await Promise.race([Loja.aberta, pausa(9000)]);
+    if (Loja.modo === "a-abrir") { aviso("Ainda não consegui abrir o caderno. Tenta daqui a pouco."); return; }
+    const guardados = contam.slice(), todos = E.tiros.slice();
+    const corpo = {
+      tipo: "serie", criado: new Date().toISOString(), alvo: E.alvo, calibre: E.calibre,
+      arma: E.arma, municao: E.municao, local: E.local, notas: E.notas,
+      tiros: contam.map((t) => ({ x: t.x, y: t.y, v: t.v, i: t.i })),
+      n: st.n, total: st.total, inteiro: st.inteiro, interiores: st.interiores,
+      grupo: r2(st.disp), cx: r2(st.cx), cy: r2(st.cy)
+    };
+    if (prova) {
+      // Uma prova guarda tambem o ensaio, o alvo de papel de cada tiro, as series de 10 e a duracao.
+      corpo.prova = 1;
+      corpo.tiros = contam.map((t) => ({ x: t.x, y: t.y, v: t.v, i: t.i, c: t.c }));
+      corpo.ensaio = E.tiros.filter((t) => t.e).map((t) => ({ x: t.x, y: t.y, v: t.v, i: t.i, c: t.c }));
+      corpo.series = [];
+      for (let k = 0; k < contam.length; k += 10) {
+        const soma = contam.slice(k, k + 10).reduce((a, t) => a + valorNum(def, t.v), 0);
+        corpo.series.push(Math.round(soma * 10) / 10);
+      }
+      corpo.duracao = E.prova.inicio ? Math.round(((E.prova.fim || Date.now()) - E.prova.inicio) / 1000) : 0;
+    }
+    const nome = prova ? "Prova" : "Série";
+    const id = novoId("s");
+    let ficou = false;
+    if (Loja.modo === "nuvem") {
+      try {
+        await escreverSerie(id, corpo);
+        ficou = true;
+        aviso(nome + " guardada no caderno.");
+      } catch (e) {
+        pendentes.push({ id, corpo });
+        if (gravarLocal(CHAVE.pendentes, pendentes)) { ficou = true; aviso("Sem ligação. Fica neste telefone até ser enviada."); }
+        else { pendentes.pop(); aviso("Sem ligação, e este telefone não deixou guardar. Os tiros continuam no alvo."); }
+      }
+    } else {
+      recarregarLocal();
+      series.unshift(Object.assign({ id }, corpo));
+      if (gravarLocal(CHAVE.series, series)) { ficou = true; aviso(nome + " guardada neste dispositivo."); }
+      else { series.shift(); aviso("Este dispositivo não deixou guardar. Os tiros continuam no alvo."); }
+    }
+    if (!ficou) return;
+    if (registarEquipamento(corpo.arma, corpo.municao)) guardarPrefs();
+    // Limpa-se so o que foi guardado: um tiro marcado durante a espera continua no alvo.
+    if (prova) { E.notas = ""; $("f-notas").value = ""; anularProva(); }
+    else if (E.tiros.length === todos.length && E.tiros.every((t, i) => t === todos[i])) limparSerie();
+    else {
+      E.tiros = E.tiros.filter((t) => !guardados.includes(t));
+      E.sel = -1; E.mover = false; E.notas = ""; $("f-notas").value = "";
+      guardarRascunho();
+    }
+  } finally {
+    Loja.aGuardar = false;
+    pintar();
+    refrescar();
+  }
 }
 $("guardar").addEventListener("click", guardarSerie);
 
 async function apagarSerie(id) {
   if (pendentes.some((p) => p.id === id)) {
+    const antes = pendentes;
     pendentes = pendentes.filter((p) => p.id !== id);
-    gravarLocal(CHAVE.pendentes, pendentes);
+    if (!gravarLocal(CHAVE.pendentes, pendentes)) { pendentes = antes; aviso("Este dispositivo não deixou apagar."); return false; }
   } else if (Loja.modo === "nuvem") {
-    try { await Loja.col.doc(id).delete(); } catch (e) { aviso("Não foi possível apagar. Tenta com ligação."); return false; }
+    try { await comPrazo(Loja.col.doc(id).delete(), 8000); } catch (e) { aviso("Não foi possível apagar. Tenta com ligação."); return false; }
   } else {
+    recarregarLocal();
+    const antes = series;
     series = series.filter((x) => x.id !== id);
-    gravarLocal(CHAVE.series, series);
+    if (!gravarLocal(CHAVE.series, series)) { series = antes; aviso("Este dispositivo não deixou apagar."); return false; }
   }
   aviso("Sessão apagada.");
   refrescar();
   return true;
 }
 
-/* Muda os dados escritos de uma sessao ja guardada (arma, municao, carreira, notas). */
+/* Muda os dados escritos de uma sessao ja guardada (data, arma, municao, carreira, notas). */
 async function atualizarSerie(id, campos) {
   const pendente = pendentes.find((p) => p.id === id);
   if (pendente) {
+    const antes = Object.assign({}, pendente.corpo);
     Object.assign(pendente.corpo, campos);
-    gravarLocal(CHAVE.pendentes, pendentes);
+    if (!gravarLocal(CHAVE.pendentes, pendentes)) { pendente.corpo = antes; aviso("Este dispositivo não deixou guardar."); return false; }
   } else if (Loja.modo === "nuvem") {
-    try { await Loja.col.doc(id).update(campos); } catch (e) { aviso("Não foi possível guardar. Tenta com ligação."); return false; }
-    const local = series.find((x) => x.id === id);
-    if (local) Object.assign(local, campos);
+    try { await comPrazo(Loja.col.doc(id).update(campos), 8000); } catch (e) { aviso("Não foi possível guardar. Tenta com ligação."); return false; }
+    const naLista = series.find((x) => x.id === id);
+    if (naLista) Object.assign(naLista, campos);
   } else {
-    const local = series.find((x) => x.id === id);
-    if (!local) return false;
-    Object.assign(local, campos);
-    if (!gravarLocal(CHAVE.series, series)) { aviso("Este dispositivo não deixou guardar."); return false; }
+    recarregarLocal();
+    const naLista = series.find((x) => x.id === id);
+    if (!naLista) { aviso("Essa sessão já não está no caderno."); return false; }
+    const antes = Object.assign({}, naLista);
+    Object.assign(naLista, campos);
+    if (!gravarLocal(CHAVE.series, series)) { Object.assign(naLista, antes); aviso("Este dispositivo não deixou guardar."); return false; }
   }
   if (registarEquipamento(campos.arma, campos.municao)) guardarPrefs();
   return true;
@@ -2812,39 +3157,79 @@ async function atualizarSerie(id, campos) {
 
 async function apagarTudo() {
   const quantas = todasAsSeries().length;
+  Loja.geracao++;                          // para o envio de pendentes que estiver a decorrer
+  pendentes = [];
+  gravarLocal(CHAVE.pendentes, pendentes);
   if (Loja.modo === "nuvem") {
     let falhas = 0;
     for (const x of series.slice()) {
-      try { await Loja.col.doc(x.id).delete(); } catch (e) { falhas++; }
+      try { await comPrazo(Loja.col.doc(x.id).delete(), 8000); } catch (e) { falhas++; }
     }
     if (falhas) { aviso("Não foi possível apagar tudo. Tenta com ligação."); refrescar(); return; }
   } else {
     series = [];
-    gravarLocal(CHAVE.series, series);
+    if (!gravarLocal(CHAVE.series, series)) { recarregarLocal(); aviso("Este dispositivo não deixou apagar."); refrescar(); return; }
   }
-  pendentes = [];
-  gravarLocal(CHAVE.pendentes, pendentes);
   aviso(plural(quantas, "sessão apagada.", "sessões apagadas."));
   refrescar();
 }
 
+/* Uma sessao vinda de um ficheiro: so entra se tiver id, alvo conhecido e tiros com
+   posicao valida; as contas refazem-se a partir dos tiros. */
+function sessaoLimpa(x) {
+  if (!x || x.tipo !== "serie" || typeof x.id !== "string" || !x.id || !Array.isArray(x.tiros)) return null;
+  const def = ALVOS[x.alvo];
+  if (!def) return null;
+  const cal = Number(x.calibre) > 0 ? Number(x.calibre) : def.calibre;
+  const limpar = (lista) => (Array.isArray(lista) ? lista : []).filter((t) => t && isFinite(t.x) && isFinite(t.y) && t.x !== null && t.y !== null).map((t) => {
+    const tiro = { x: Number(t.x), y: Number(t.y), v: 0, i: t.i ? 1 : 0 };
+    tiro.v = isFinite(t.v) && t.v !== null ? Number(t.v) : pontuar(def, Math.hypot(tiro.x, tiro.y), cal).v;
+    if (t.c !== undefined && t.c !== null && isFinite(t.c)) tiro.c = Number(t.c);
+    return tiro;
+  });
+  const tiros = limpar(x.tiros);
+  if (!tiros.length) return null;
+  const st = estatisticas(tiros);
+  const limpa = Object.assign({}, x, {
+    calibre: cal, tiros, n: st.n, total: st.total, inteiro: st.inteiro, interiores: st.interiores,
+    grupo: r2(st.disp), cx: r2(st.cx), cy: r2(st.cy)
+  });
+  if (x.ensaio) limpa.ensaio = limpar(x.ensaio);
+  if (isNaN(Date.parse(limpa.criado))) limpa.criado = new Date().toISOString();
+  for (const k of ["arma", "municao", "local", "notas"]) if (typeof limpa[k] !== "string") limpa[k] = "";
+  delete limpa.pendente;
+  return limpa;
+}
 /* Junta ao caderno as sessoes de uma copia de seguranca que ainda ca nao estao. */
 async function reporSeries(lista) {
+  recarregarLocal();
   const tenho = new Set(todasAsSeries().map((x) => x.id));
-  const novas = lista.filter((x) => x && x.tipo === "serie" && Array.isArray(x.tiros) && typeof x.id === "string" && !tenho.has(x.id));
+  const novas = [];
+  for (const bruta of lista) {
+    const x = sessaoLimpa(bruta);
+    if (!x || tenho.has(x.id)) continue;
+    tenho.add(x.id);                       // a mesma sessao duas vezes no ficheiro so entra uma
+    novas.push(x);
+  }
   if (!novas.length) return 0;
   if (Loja.modo === "nuvem") {
     for (const x of novas) {
       const corpo = Object.assign({}, x);
-      delete corpo.id; delete corpo.pendente;
+      delete corpo.id;
       try { await escreverSerie(x.id, corpo); }
       catch (e) { pendentes.push({ id: x.id, corpo }); gravarLocal(CHAVE.pendentes, pendentes); }
     }
   } else {
-    novas.forEach((x) => { const c = Object.assign({}, x); delete c.pendente; series.push(c); });
-    if (!gravarLocal(CHAVE.series, series)) return -1;
+    const antes = series;
+    series = series.concat(novas);
+    if (!gravarLocal(CHAVE.series, series)) { series = antes; return -1; }
   }
   return novas.length;
+}
+
+/* A lista de sessoes mudou? Evita reconstruir o ecra a cada aviso da conta que nao traz nada de novo. */
+function assinatura(lista) {
+  return lista.map((x) => [x.id, x.criado, x.n, x.arma, x.municao, x.local, (x.notas || "").length].join("~")).join("|");
 }
 
 async function abrirLoja() {
@@ -2853,15 +3238,17 @@ async function abrirLoja() {
   let db = null, user = null, uid = null;
   try {
     if (window.claude && typeof window.claude.use === "function") {
-      [db, user, Loja.downloads] = await Promise.all([window.claude.use("db"), window.claude.use("user"), window.claude.use("downloads")]);
+      // Cada capacidade pede-se por si: se uma falhar, as outras servem na mesma.
+      const pedir = (nome) => Promise.resolve().then(() => window.claude.use(nome)).catch(() => null);
+      const tudo = await Promise.race([Promise.all([pedir("db"), pedir("user"), pedir("downloads")]), pausa(12000).then(() => null)]);
+      if (tudo) { db = tudo[0]; user = tudo[1]; Loja.downloads = tudo[2]; }
     }
   } catch (e) { db = null; }
-  try { uid = user ? await user.id() : null; } catch (e) { uid = null; }
+  try { uid = user ? await comPrazo(user.id(), 8000) : null; } catch (e) { uid = null; }
 
   if (!db || !uid) {
     Loja.modo = "local";
-    const guardadas = lerLocal(CHAVE.series, []);
-    series = Array.isArray(guardadas) ? guardadas : [];
+    series = seriesDoDispositivo();
     // Pede ao telemovel para nao apagar estes dados quando precisar de espaco.
     try { if (AUTONOMA && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) { /* sem suporte */ }
     Loja.pronto = true;
@@ -2872,7 +3259,19 @@ async function abrirLoja() {
 
   Loja.modo = "nuvem";
   Loja.col = db.collection("data/users/" + uid);
-  const limite = setTimeout(() => { if (!Loja.pronto) { Loja.lento = true; refrescar(); } }, 10000);
+  // Sessoes que ficaram so neste navegador (guardadas sem conta aberta) seguem agora para a conta.
+  const soltas = seriesDoDispositivo();
+  if (soltas.length) {
+    soltas.forEach((x) => {
+      if (!x || typeof x.id !== "string" || pendentes.some((p) => p.id === x.id)) return;
+      const corpo = Object.assign({}, x);
+      delete corpo.id; delete corpo.pendente;
+      pendentes.push({ id: x.id, corpo });
+    });
+    if (gravarLocal(CHAVE.pendentes, pendentes)) gravarLocal(CHAVE.series, []);
+  }
+  const limite = setTimeout(() => { if (!Loja.pronto) { Loja.lento = true; refrescar(true); } }, 10000);
+  let ultima = null;
   Loja.col.onSnapshot((snap) => {
     const novas = [];
     let config = null;
@@ -2882,29 +3281,43 @@ async function abrirLoja() {
       if (corpo.tipo === "serie" && Array.isArray(corpo.tiros)) novas.push(Object.assign({ id: d.id }, corpo));
       else if (d.id === "config") config = corpo;
     });
-    series = novas;
-    if (config && !Loja.configLida) {
-      Loja.configLida = true;
-      aplicarConfig({ prefs: config.prefs, equip: config.equip }, true);
-      gravarLocal(CHAVE.config, { prefs: P, equip: EQ });
-      if (!E.tiros.length && !(emProva() && E.prova.fase !== "espera")) {
-        aplicarDados({ alvo: config.alvo, calibre: config.calibre, arma: config.arma, municao: config.municao, local: config.local, clique: config.clique });
-        fichaParaEcra(); pintar();
-      }
-    }
     const daRede = !snap.metadata.fromCache;
-    if (daRede) { clearTimeout(limite); Loja.lento = false; }
+    const estavaPronto = Loja.pronto, estavaLento = Loja.lento;
+    series = novas;
+    let mudou = !estavaPronto;
+    if (config && receberConfig(config, !daRede)) { mudou = true; pintar(); }
+    if (daRede) { clearTimeout(limite); Loja.lento = false; Loja.falhou = false; }
     Loja.pronto = true;
     // So se registam equipamentos depois de a conta responder, para nao duplicar o que la esta.
     if (daRede) semearEquipamento();
-    refrescar();
-    enviarPendentes();
+    const agora = assinatura(novas);
+    if (agora !== ultima || estavaLento !== Loja.lento) mudou = true;
+    ultima = agora;
+    if (mudou) refrescar(true);
+    if (daRede) { enviarPendentes(); if (configSuja) escreverConfig(); }
   }, () => {
     clearTimeout(limite);
-    Loja.pronto = true; Loja.lento = true;
-    refrescar();
+    Loja.pronto = true; Loja.lento = true; Loja.falhou = true;
+    refrescar(true);
   });
 }
+
+/* Quando a rede volta, segue o que ficou por enviar. */
+window.addEventListener("online", () => { enviarPendentes(); if (configSuja) escreverConfig(); });
+/* A app a sair do ecra: as preferencias por escrever seguem ja, sem esperar pelo temporizador. */
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && configSuja) escreverConfig(); });
+/* A mesma app aberta noutro separador mexeu nos dados deste dispositivo. */
+window.addEventListener("storage", (ev) => {
+  if (!ev || !ev.key) return;
+  if (ev.key === CHAVE.series && Loja.modo === "local") { series = seriesDoDispositivo(); refrescar(true); }
+  else if (ev.key === CHAVE.pendentes) { const p = lerLocal(CHAVE.pendentes, []); pendentes = Array.isArray(p) ? p : []; refrescar(true); }
+  else if (ev.key === CHAVE.config) { aplicarConfig(lerLocal(CHAVE.config, null), false); refrescar(true); }
+});
+/* Um ecra que nao foi atualizado porque alguem estava a escrever atualiza-se quando acabar. */
+document.addEventListener("focusout", () => {
+  if (!Loja.porPintar) return;
+  setTimeout(() => { if (Loja.porPintar && !aEscrever()) refrescar(true); }, 60);
+});
 
 /* Entrega um ficheiro a quem usa a app. No claude.ai passa pela capacidade de
    downloads. Fora dele, no telemovel abre a folha de partilha (Guardar em Ficheiros,
@@ -2941,9 +3354,12 @@ function pintarEstadoLoja() {
 }
 
 /* Repinta o que depende das sessoes guardadas: as sugestoes da ficha e o ecra aberto. */
-function refrescar() {
-  pintarSugestoes();
+function refrescar(suave) {
   pintarEstadoLoja();
+  // Vindo de um aviso da conta ou de outro separador, nao se reconstroi um ecra onde alguem esta a escrever.
+  if (suave && (aEscrever() || V.editar || M.editar)) { Loja.porPintar = true; return; }
+  Loja.porPintar = false;
+  pintarSugestoes();
   if (E.vista === "caderno") pintarCaderno();
   else if (E.vista === "sessao") pintarSessao();
   else if (E.vista === "analise") pintarAnalise();
@@ -2958,6 +3374,7 @@ function estadoVazio(texto, ligacao, rotulo) {
 function pintarCaderno() {
   const todas = todasAsSeries();
   const presentes = Array.from(new Set(todas.map((x) => x.alvo))).filter((a) => ALVOS[a]);
+  if (E.filtro && !presentes.includes(E.filtro)) E.filtro = "";      // o alvo filtrado deixou de ter sessoes
   if (E.filtro === null && Loja.pronto && todas.length) E.filtro = presentes.length > 1 && presentes.includes(E.alvo) ? E.alvo : "";
   const filtro = E.filtro || "";
   let visiveis = filtro ? todas.filter((x) => x.alvo === filtro) : todas;
@@ -2998,6 +3415,16 @@ function pintarCaderno() {
       h("button", { type: "button", class: "botao", on: { click: enviarPendentes } }, "Enviar agora"));
     temEstado = true;
   }
+  if (Loja.pronto && Loja.modo === "local" && todas.length >= 5) {
+    const semCopia = P.ultimaCopia ? todas.filter((x) => String(x.criado) > P.ultimaCopia).length : todas.length;
+    const ultima = P.ultimaCopia ? dataDe(P.ultimaCopia) : null;
+    if (semCopia >= 5 && (!ultima || Date.now() - ultima.getTime() > 14 * DIA)) {
+      estado.append(
+        h("span", { text: plural(semCopia, "sessão", "sessões") + " sem cópia de segurança: só existem neste telemóvel. " }),
+        h("a", { class: "botao pequeno", href: "#mais" }, "Fazer cópia"));
+      temEstado = true;
+    }
+  }
   estado.hidden = !temEstado;
 
   /* resumo */
@@ -3019,7 +3446,9 @@ function pintarCaderno() {
   /* lista, mes a mes */
   const lista = $("series");
   lista.textContent = "";
-  if (Loja.pronto && !todas.length) {
+  if (Loja.pronto && !todas.length && Loja.falhou) {
+    lista.append(h("li", null, h("p", { class: "nota", text: "Não foi possível ler o caderno da conta. Volta a abrir a app quando tiveres ligação." })));
+  } else if (Loja.pronto && !todas.length) {
     lista.append(h("li", null, estadoVazio("Ainda não há sessões no caderno. Marca os impactos no alvo, ou lê um alvo por fotografia, e toca em Guardar: cada sessão fica aqui com o total, a média e o agrupamento.", "#alvo", "Ir para o alvo")));
   } else if (Loja.pronto && !visiveis.length) {
     lista.append(h("li", null, h("p", { class: "nota", text: "Não há sessões com estes filtros." })));
@@ -3138,7 +3567,9 @@ function pintarSessao() {
     seriesV.length ? h("div", { class: "res-series" }, seriesV.map((v, i) =>
       h("span", { class: "serie-chip" + (v === melhor && seriesV.length > 1 ? " melhor" : "") }, h("small", { text: "Série " + (i + 1) }), h("b", { text: textoSoma(def, v) })))) : null,
     def.inteiros ? h("p", { class: "nota", text: nf1.format(st.total) + " em décimas." + (st.interiores ? " " + plural(st.interiores, "dez interior.", "dezes interiores.") : "") }) : (st.interiores ? h("p", { class: "nota", text: plural(st.interiores, "dez interior.", "dezes interiores.") }) : null),
-    x.prova && def.prova && n < def.prova ? h("p", { class: "nota", text: "Prova incompleta: " + n + " de " + def.prova + " tiros." }) : null));
+    x.prova && def.prova && n < def.prova ? h("p", { class: "nota", text: "Prova incompleta: " + n + " de " + def.prova + " tiros." }) : null,
+    x.prova && def.prova && n === def.prova && seriesV.length > 1
+      ? h("p", { class: "nota", text: "Em caso de empate conta a última série: " + textoSoma(def, seriesV[seriesV.length - 1]) + "." }) : null));
 
   /* alvo */
   const cartoes = cartoesDaSessao(x);
@@ -3241,10 +3672,17 @@ function pintarDetalhes() {
     const fLocal = h("input", { id: "ed-local", value: x.local || "", list: "l-local", autocomplete: "off" });
     const fNotas = h("textarea", { id: "ed-notas", rows: 3 });
     fNotas.value = x.notas || "";
+    const fData = h("input", { id: "ed-data", type: "datetime-local", value: paraCampoData(x.criado) });
     const guardar = h("button", { type: "button", class: "botao forte" }, "Guardar alterações");
     guardar.addEventListener("click", async () => {
       guardar.disabled = true;
       const campos = { arma: fArma.value.trim(), municao: fMun.value.trim(), local: fLocal.value.trim(), notas: fNotas.value.trim() };
+      // A data so muda se o campo foi mesmo mexido (o campo nao guarda os segundos).
+      if (fData.value && fData.value !== paraCampoData(x.criado)) {
+        const quandoFoi = new Date(fData.value);
+        if (isNaN(quandoFoi) || quandoFoi.getTime() > Date.now() + DIA) { aviso("Essa data não é válida."); guardar.disabled = false; return; }
+        campos.criado = quandoFoi.toISOString();
+      }
       if (await atualizarSerie(x.id, campos)) { V.editar = false; aviso("Alterações guardadas."); refrescar(); }
       else guardar.disabled = false;
     });
@@ -3252,6 +3690,7 @@ function pintarDetalhes() {
     caixa.append(
       h("h2", { text: "Editar dados" }),
       h("div", { class: "campos" },
+        h("label", { htmlFor: "ed-data", text: "Data e hora" }), fData,
         h("label", { htmlFor: "ed-arma", text: "Arma" }), fArma,
         h("label", { htmlFor: "ed-mun", text: "Munição e lote" }), fMun,
         h("label", { htmlFor: "ed-local", text: "Carreira" }), fLocal,
@@ -3882,7 +4321,7 @@ function linhaEquipamento(item, tipo, lista, uso) {
       if (fClique) { const c = numero(fClique.value); item.clique = c > 0 ? c : 0; }
       item.notas = fNotas.value.trim();
       M.editar = "";
-      if (emUso && tipo === "arma" && item.clique > 0) { E.clique = textoClique(item.clique); $("f-clique").value = E.clique; guardarRascunho(); }
+      if (emUso && tipo === "arma") { E.clique = item.clique > 0 ? textoClique(item.clique) : ""; $("f-clique").value = E.clique; guardarRascunho(); }
       guardarPrefs(); pintarEquipamento();
     });
     const cancelar = h("button", { type: "button", class: "botao", on: { click: () => { M.editar = ""; pintarEquipamento(); } } }, "Cancelar");
@@ -3904,7 +4343,7 @@ function linhaEquipamento(item, tipo, lista, uso) {
   usar.addEventListener("click", () => {
     if (tipo === "arma") {
       E.arma = item.nome; $("f-arma").value = item.nome;
-      if (item.clique > 0) { E.clique = textoClique(item.clique); $("f-clique").value = E.clique; }
+      E.clique = item.clique > 0 ? textoClique(item.clique) : ""; $("f-clique").value = E.clique;
     } else {
       E.municao = item.nome; $("f-mun").value = item.nome;
     }
@@ -4039,13 +4478,28 @@ $("repor-ficheiro").addEventListener("change", async () => {
   const equip = dados.config && dados.config.equip;
   if (equip && typeof equip === "object") {
     limparEquipamento(equip.armas, true).forEach((a) => {
-      if (!armaRegistada(a.nome)) { EQ.armas.push(a); mudou = true; }
+      const minha = armaRegistada(a.nome);
+      if (!minha) { EQ.armas.push(a); mudou = true; return; }
+      // a arma ja existe: a copia completa o que lhe faltar
+      if (!minha.clique && a.clique > 0) { minha.clique = a.clique; mudou = true; }
+      if (!minha.notas && a.notas) { minha.notas = a.notas; mudou = true; }
     });
     limparEquipamento(equip.municoes, false).forEach((mu) => {
-      if (!EQ.municoes.some((x) => x.nome.toLowerCase() === mu.nome.toLowerCase())) { EQ.municoes.push(mu); mudou = true; }
+      const minha = EQ.municoes.find((x) => x.nome.toLowerCase() === mu.nome.toLowerCase());
+      if (!minha) { EQ.municoes.push(mu); mudou = true; }
+      else if (!minha.notas && mu.notas) { minha.notas = mu.notas; mudou = true; }
     });
   }
-  dados.series.forEach((x) => { if (x && registarEquipamento(x.arma, x.municao)) mudou = true; });
+  // As preferencias da copia so entram onde este dispositivo ainda nao tem nada.
+  const prefs = dados.config && dados.config.prefs;
+  if (prefs && typeof prefs === "object") {
+    if (prefs.objetivos && typeof prefs.objetivos === "object") {
+      for (const k in prefs.objetivos) if (ALVOS[k] && !P.objetivos[k] && Number(prefs.objetivos[k]) > 0) { P.objetivos[k] = Number(prefs.objetivos[k]); mudou = true; }
+    }
+    if (!P.nome && typeof prefs.nome === "string" && prefs.nome) { P.nome = prefs.nome; mudou = true; }
+    if (!P.clube && typeof prefs.clube === "string" && prefs.clube) { P.clube = prefs.clube; mudou = true; }
+  }
+  dados.series.forEach((x) => { if (x && typeof x === "object" && registarEquipamento(x.arma, x.municao)) mudou = true; });
   if (mudou) guardarPrefs();
   refrescar();
   aviso(novas ? plural(novas, "sessão reposta.", "sessões repostas.") : "Essa cópia não trazia sessões novas.");
@@ -4072,15 +4526,693 @@ $("exportar").addEventListener("click", async () => {
 
 doisPassos($("apagar-tudo"), "Confirmar: apagar tudo", () => { apagarTudo(); });
 
+/* ---------- ao vivo: visao (nada aqui toca na pagina) ---------- */
+
+/* Segue o alvo numa sequencia de imagens da camara e encontra os impactos novos.
+   O ecra entrega, varias vezes por segundo, um recorte quadrado da imagem da
+   camara em tons de cinzento, e diz como esse recorte se situa na imagem inteira:
+   camara = { x0, y0 } + recorte * k. O seguidor:
+   1. acha o disco preto do alvo no recorte (centro, tamanho e forma);
+   2. tira dai um "retalho" alinhado, sempre com o centro do alvo ao meio e a mesma
+      escala, e faz a media dos ultimos retalhos para limpar o ruido;
+   3. compara essa media com uma referencia: uma mancha nova, redonda e do tamanho
+      de um furo, que se mantenha uns instantes, e um impacto. */
+
+const VIVO_N = 448;        // lado do retalho alinhado, em pixeis
+const VIVO_FOLGA = 1.14;   // margem do recorte da camara a volta do alvo
+const VIVO_ALFA = 0.35;    // peso de cada imagem nova na media
+const VIVO_LIMIAR = 0.1;   // diferenca media (0 = igual, 1 = de preto a papel) para haver candidato
+
+/* De cor para um so canal: o menor dos tres (vermelho, verde, azul). O cartao dos
+   alvos e bege e o que se ve por um furo e cinzento, quase com a mesma claridade:
+   na claridade o furo mal se nota, mas no menor dos canais o papel fica a meio
+   tom, o furo fica claro e o preto continua preto. Medido nas fotografias de teste. */
+function vivoCanal(rgba, n, saida) {
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    const r = rgba[j], g = rgba[j + 1], b = rgba[j + 2];
+    saida[i] = r < g ? (r < b ? r : b) : (g < b ? g : b);
+  }
+  return saida;
+}
+function vivoAmostra(g, W, H, x, y) {
+  if (!(x >= 0 && y >= 0 && x < W - 1 && y < H - 1)) return -1;
+  const x0 = x | 0, y0 = y | 0, fx = x - x0, fy = y - y0, i = y0 * W + x0;
+  const a = g[i] + (g[i + 1] - g[i]) * fx, b = g[i + W] + (g[i + W + 1] - g[i + W]) * fx;
+  return a + (b - a) * fy;
+}
+function vivoMediana(v) {
+  if (!v.length) return 0;
+  const c = Float32Array.from(v).sort();
+  return c[c.length >> 1];
+}
+
+/* Procura no recorte a mancha escura mais parecida com um disco e mais perto do
+   meio. Devolve um palpite { cx, cy, r } em pixeis do recorte, ou null. */
+function vivoProcurarDisco(g, W, H) {
+  const f = Math.max(1, Math.round(W / 280));
+  const sw = Math.floor(W / f), sh = Math.floor(H / f);
+  const peq = new Uint8Array(sw * sh), hist = new Uint32Array(256);
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+    const v = g[(y * f + (f >> 1)) * W + x * f + (f >> 1)];
+    peq[y * sw + x] = v; hist[v]++;
+  }
+  const perc = (p) => { let ac = 0; const alvo = sw * sh * p; for (let v = 0; v < 256; v++) { ac += hist[v]; if (ac >= alvo) return v; } return 255; };
+  const meio = perc(0.6);
+  let melhor = null, melhorNota = 0;
+  // O disco pode ocupar muito ou pouco do recorte: tenta-se com dois niveis de "escuro".
+  for (const parte of [0.003, 0.04]) {
+    const escuro = perc(parte);
+    if (meio - escuro < 30) continue;
+    const corte = escuro + 0.4 * (meio - escuro);
+    const masc = new Uint8Array(sw * sh);
+    for (let i = 0; i < sw * sh; i++) masc[i] = peq[i] <= corte ? 1 : 0;
+    const cc = window.DetetorAlvo.componentes(masc, sw, sh);
+    for (const c of cc.lista) {
+      const bw = c.x1 - c.x0 + 1, bh = c.y1 - c.y0 + 1;
+      if (bw < 5 || bh < 5) continue;
+      if (c.x0 === 0 || c.y0 === 0 || c.x1 === sw - 1 || c.y1 === sh - 1) continue;
+      const aspeto = Math.min(bw, bh) / Math.max(bw, bh), cheio = c.area / (bw * bh);
+      if (aspeto < 0.72 || cheio < 0.5 || cheio > 0.92) continue;
+      const longe = Math.hypot(c.cx - sw / 2, c.cy - sh / 2) / (sw / 2);
+      const nota = c.area * aspeto * (1 - Math.abs(cheio - 0.76)) * Math.exp(-2 * longe * longe);
+      if (nota > melhorNota) {
+        melhorNota = nota;
+        melhor = { cx: (c.cx + 0.5) * f, cy: (c.cy + 0.5) * f, r: Math.max(bw, bh) * f / 2 };
+      }
+    }
+  }
+  return melhor;
+}
+
+/* A partir de um palpite, mede a orla do disco preto ao longo de raios (com
+   fracoes de pixel) e ajusta-lhe uma elipse, pondo de parte os pontos que saem
+   dela, como os furos na orla. Devolve o centro, a matriz m que leva um ponto do
+   recorte para o disco unitario e os niveis de preto e de papel; ou null. */
+function vivoAfinarDisco(g, W, H, palpite) {
+  const cx0 = palpite.cx, cy0 = palpite.cy, r0 = palpite.r;
+  if (!(r0 >= 4)) return null;
+  const pretos = [], papeis = [];
+  for (let a = 0; a < 360; a += 5) {
+    const dx = Math.cos(a * Math.PI / 180), dy = Math.sin(a * Math.PI / 180);
+    for (const q of [0.3, 0.5]) { const v = vivoAmostra(g, W, H, cx0 + dx * r0 * q, cy0 + dy * r0 * q); if (v >= 0) pretos.push(v); }
+    for (const q of [1.1, 1.17, 1.24]) { const v = vivoAmostra(g, W, H, cx0 + dx * r0 * q, cy0 + dy * r0 * q); if (v >= 0) papeis.push(v); }
+  }
+  if (papeis.length < 150) return null;                 // o alvo esta cortado no recorte
+  const preto = vivoMediana(pretos), papel = vivoMediana(papeis);
+  if (papel - preto < 28) return null;                  // pouco contraste
+  const Te = (preto + papel) / 2;
+  const janela = Math.max(1.5, 0.2 * r0), passo = Math.max(0.3, Math.min(1, r0 / 70));
+  let pontos = [];
+  for (let a = 0; a < 360; a += 2) {
+    const dx = Math.cos(a * Math.PI / 180), dy = Math.sin(a * Math.PI / 180);
+    let ultimo = -1, vUltimo = 0, claro = 0, cruza = -1, borda = -1;
+    for (let r = 0.3 * r0; r <= 1.8 * r0; r += passo) {
+      const v = vivoAmostra(g, W, H, cx0 + dx * r, cy0 + dy * r);
+      if (v < 0) break;
+      if (v <= Te) { ultimo = r; vUltimo = v; claro = 0; cruza = -1; }
+      else if (ultimo >= 0) {
+        if (cruza < 0) cruza = ultimo + passo * (Te - vUltimo) / Math.max(1e-6, v - vUltimo);
+        claro += passo;
+        if (claro >= janela) { borda = cruza; break; }
+      }
+    }
+    if (borda > 0) pontos.push([cx0 + dx * borda, cy0 + dy * borda]);
+  }
+  if (pontos.length < 110) return null;
+  const ajustar = window.DetetorAlvo.ajustarElipse;
+  const normal = (el, p) => { const dx = p[0] - el.cx, dy = p[1] - el.cy; return Math.hypot(el.m[0] * dx + el.m[1] * dy, el.m[2] * dx + el.m[3] * dy); };
+  // Um furo claro junto a orla puxa para dentro os pontos vizinhos, uns decimos de
+  // pixel cada um. Com tolerancia fixa ficavam, e o disco saia mais pequeno e
+  // desviado. Por isso o corte faz-se pela mediana dos desvios desta imagem.
+  let el = ajustar(pontos);
+  for (let it = 0; it < 6 && el; it++) {
+    const desvios = pontos.map((p) => Math.abs(normal(el, p) - 1));
+    const corte = Math.max(2.5 * 1.4826 * vivoMediana(desvios), 0.1 / r0);
+    const bons = pontos.filter((p, i) => desvios[i] <= corte);
+    if (bons.length < 80 || bons.length === pontos.length) break;
+    pontos = bons;
+    el = ajustar(pontos);
+  }
+  if (!el || el.menor / el.maior < 0.55) return null;
+  return { cx: el.cx, cy: el.cy, m: el.m, maior: el.maior, menor: el.menor, r: Math.sqrt(el.maior * el.menor), preto, papel };
+}
+
+function criarSeguidor(def, calibre) {
+  const N = VIVO_N, n2 = N * N;
+  const Rmm = def.preto / 2;
+  const fora = def.aneis[def.aneis.length - 1] / 2;
+  const Rv = fora * 1.08;                 // o mesmo campo de vista do alvo desenhado
+  const S = N / (2 * Rv);                 // pixeis do retalho por milimetro
+  const rf = calibre / 2 * S;             // raio de um furo no retalho
+  const retalho = new Float32Array(n2), dif = new Float32Array(n2);
+  const integral = new Float64Array((N + 1) * (N + 1));
+
+  // Onde se procuram impactos (ate ao ultimo anel mais um calibre) e o aspeto do
+  // alvo sem furos: 0 no preto, 1 no papel. Serve para distinguir um furo que
+  // aparece de um furo que desaparece quando se troca o cartao.
+  const dentro = new Uint8Array(n2), limpo = new Float32Array(n2);
+  let nDentro = 0;
+  const rMax = (fora + calibre) * S, rPreto = Rmm * S;
+  const rDez = def.interior == null && def.aneis[0] >= 2 ? def.aneis[0] / 2 * S : 0;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const d = Math.hypot(i + 0.5 - N / 2, j + 0.5 - N / 2);
+    if (d <= rMax) { dentro[j * N + i] = 1; nDentro++; }
+    limpo[j * N + i] = d > rPreto || d < rDez ? 1 : 0;
+  }
+
+  const st = { disco: null, perdido: 0, quietos: 0, acum: null, nAcum: 0, ref: null, pend: [], absorver: [], mudanca: 0, assentar: 0, tique: 0, raios: [], forma: null };
+
+  function amostrar(g, W, d) {
+    // u = m (p - c), logo p = c + m^-1 u, com u = (X, Y para baixo) / Rmm
+    const det = d.m[0] * d.m[3] - d.m[1] * d.m[2];
+    const q = 1 / (S * Rmm * det);
+    const ax = d.m[3] * q, ay = -d.m[2] * q, bx = -d.m[1] * q, by = d.m[0] * q;
+    const meio = N / 2 - 0.5, ganho = 1 / Math.max(1, d.papel - d.preto), lim = W - 1;
+    for (let j = 0; j < N; j++) {
+      let x = d.cx - meio * ax + (j - meio) * bx, y = d.cy - meio * ay + (j - meio) * by;
+      const o = j * N;
+      for (let i = 0; i < N; i++, x += ax, y += ay) {
+        let v = d.papel;
+        if (x >= 0 && y >= 0 && x < lim && y < lim) {
+          const x0 = x | 0, y0 = y | 0, fx = x - x0, fy = y - y0, p = y0 * W + x0;
+          const a = g[p] + (g[p + 1] - g[p]) * fx, b = g[p + W] + (g[p + W + 1] - g[p + W]) * fx;
+          v = a + (b - a) * fy;
+        }
+        retalho[o + i] = (v - d.preto) * ganho;
+      }
+    }
+  }
+
+  function juntar() {
+    if (!st.acum) { st.acum = Float32Array.from(retalho); st.nAcum = 1; return; }
+    const a = st.acum;
+    for (let i = 0; i < n2; i++) a[i] += (retalho[i] - a[i]) * VIVO_ALFA;
+    st.nAcum++;
+  }
+
+  function copiarZona(x, y, raio) {
+    const a = st.acum, r = st.ref;
+    const x0 = Math.max(0, Math.floor(x - raio)), x1 = Math.min(N - 1, Math.ceil(x + raio));
+    const y0 = Math.max(0, Math.floor(y - raio)), y1 = Math.min(N - 1, Math.ceil(y + raio));
+    for (let j = y0; j <= y1; j++) for (let i = x0; i <= x1; i++) {
+      if ((i - x) * (i - x) + (j - y) * (j - y) <= raio * raio) r[j * N + i] = a[j * N + i];
+    }
+  }
+
+  // Centro, tamanho e forma de uma mancha de diferenca a volta de um pico.
+  function medir(pi0, pj0) {
+    const a = st.acum, r = st.ref;
+    const R = Math.ceil(1.7 * rf), base = 0.05;
+    let pi = pi0, pj = pj0, sw = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, sentido = 0;
+    // Duas passagens: a primeira acha o centro da mancha a partir do pico, a segunda
+    // mede com a janela ja centrada nele, para a janela nao cortar a mancha de um lado.
+    for (let passagem = 0; passagem < 2; passagem++) {
+      sw = sx = sy = sxx = syy = sxy = sentido = 0;
+      for (let dy = -R; dy <= R; dy++) {
+        const j = pj + dy;
+        if (j < 0 || j >= N) continue;
+        for (let dx = -R; dx <= R; dx++) {
+          const i = pi + dx;
+          if (i < 0 || i >= N || dx * dx + dy * dy > R * R) continue;
+          const k = j * N + i, w = dif[k] - base;
+          if (w <= 0) continue;
+          sw += w; sx += w * dx; sy += w * dy; sxx += w * dx * dx; syy += w * dy * dy; sxy += w * dx * dy;
+          // positivo: a imagem de agora afasta-se mais do alvo limpo do que a referencia (apareceu um furo)
+          sentido += w * (Math.abs(a[k] - limpo[k]) - Math.abs(r[k] - limpo[k]));
+        }
+      }
+      if (!(sw > 0)) return null;
+      if (passagem === 0) { pi = Math.round(pi + sx / sw); pj = Math.round(pj + sy / sw); }
+    }
+    const mx = sx / sw, my = sy / sw;
+    const vxx = sxx / sw - mx * mx, vyy = syy / sw - my * my, vxy = sxy / sw - mx * my;
+    const meio = (vxx + vyy) / 2, d = Math.sqrt(Math.max(0, meio * meio - (vxx * vyy - vxy * vxy)));
+    const l1 = meio + d, l2 = Math.max(1e-6, meio - d);
+    const giro = Math.sqrt(Math.max(0, vxx + vyy));
+    return {
+      x: pi + mx, y: pj + my,
+      massa: sw / (Math.PI * rf * rf),
+      redondo: Math.sqrt(l1 / l2) < 2.6 && giro > 0.3 * rf && giro < 1.15 * rf,
+      pequeno: giro < 1.0 * rf,
+      apareceu: sentido > 0
+    };
+  }
+
+  function comparar() {
+    const a = st.acum;
+    if (st.assentar > 0) {
+      if (--st.assentar === 0) st.ref = Float32Array.from(a);
+      return { mudou: false, novos: [] };
+    }
+    const r = st.ref;
+    // A media ainda esta a assentar a volta dos impactos acabados de aceitar: a referencia acompanha-a.
+    for (const z of st.absorver) { copiarZona(z.x, z.y, 2.6 * rf); z.t--; }
+    st.absorver = st.absorver.filter((z) => z.t > 0);
+
+    let fortes = 0;
+    for (let i = 0; i < n2; i++) {
+      const d = dentro[i] ? Math.abs(a[i] - r[i]) : 0;
+      dif[i] = d;
+      if (d > 0.25) fortes++;
+    }
+    // Mudou meio alvo de uma vez (cartao novo, alguem a frente): nao sao impactos.
+    if (fortes / nDentro > 0.03) {
+      st.pend = [];
+      st.mudanca++;
+      if (st.mudanca >= 10) { st.ref = Float32Array.from(a); st.absorver = []; st.mudanca = 0; return { mudou: true, novos: [] }; }
+      return { mudou: false, novos: [] };
+    }
+    st.mudanca = 0;
+
+    // Diferenca media numa janela do tamanho de um furo, com imagem integral.
+    const M = N + 1;
+    for (let j = 0; j < N; j++) {
+      let linha = 0;
+      for (let i = 0; i < N; i++) { linha += dif[j * N + i]; integral[(j + 1) * M + i + 1] = integral[j * M + i + 1] + linha; }
+    }
+    const h = Math.max(2, Math.round(0.62 * rf)), area = (2 * h + 1) * (2 * h + 1);
+    const picos = [];
+    for (let j = h; j < N - h; j += 2) for (let i = h; i < N - h; i += 2) {
+      if (!dentro[j * N + i]) continue;
+      const soma = integral[(j + h + 1) * M + i + h + 1] - integral[(j - h) * M + i + h + 1] - integral[(j + h + 1) * M + i - h] + integral[(j - h) * M + i - h];
+      if (soma > VIVO_LIMIAR * area) picos.push([soma, i, j]);
+    }
+    picos.sort((p, q) => q[0] - p[0]);
+    // Um candidato por mancha: a volta de um furo forte a janela ainda da valores
+    // altos, e esses picos vizinhos nao sao outros furos.
+    const escolhidos = [];
+    for (const p of picos) {
+      if (escolhidos.length >= 6) break;
+      if (escolhidos.every((e) => Math.hypot(e[1] - p[1], e[2] - p[2]) >= 2.6 * rf)) escolhidos.push(p);
+    }
+    const medidos = [];
+    for (const p of escolhidos) {
+      const c = medir(p[1], p[2]);
+      if (c && medidos.every((q) => Math.hypot(q.x - c.x, q.y - c.y) >= 1.6 * rf)) medidos.push(c);
+    }
+
+    for (const c of medidos) {
+      const par = st.pend.find((q) => Math.hypot(q.x - c.x, q.y - c.y) < 0.7 * rf);
+      if (par) {
+        par.n++; par.x += (c.x - par.x) / Math.min(par.n, 4); par.y += (c.y - par.y) / Math.min(par.n, 4);
+        par.redondos += c.redondo ? 1 : 0; par.pequenos += c.pequeno ? 1 : 0; par.apareceu += c.apareceu ? 1 : -1;
+        par.massa = c.massa; par.visto = st.tique;
+      } else {
+        st.pend.push({ x: c.x, y: c.y, n: 1, redondos: c.redondo ? 1 : 0, pequenos: c.pequeno ? 1 : 0, apareceu: c.apareceu ? 1 : -1, massa: c.massa, visto: st.tique });
+      }
+    }
+    st.pend = st.pend.filter((p) => st.tique - p.visto <= 2);
+
+    // um furo limpo confirma-se depressa; um bocado de furo (em cima de outro) so se insistir
+    for (const p of st.pend) {
+      p.certo = p.n >= 5 && p.redondos >= p.n - 1;
+      p.feito = p.certo || (p.n >= 14 && p.pequenos >= p.n - 2 && p.massa > 0.12);
+    }
+    // Furos que desaparecem: trocaram o cartao. Nada do que mudou nesse momento e um
+    // tiro; espera-se que a media assente e fixa-se uma referencia nova.
+    if (st.pend.some((p) => p.feito && p.apareceu <= 0)) {
+      st.pend = []; st.absorver = []; st.assentar = 8;
+      return { mudou: true, novos: [] };
+    }
+    const novos = [];
+    for (const p of st.pend) {
+      if (!p.feito) continue;
+      st.absorver.push({ x: p.x, y: p.y, t: 16 });
+      novos.push({ x: (p.x + 0.5 - N / 2) / S, y: (N / 2 - p.y - 0.5) / S, duvida: !p.certo });
+    }
+    st.pend = st.pend.filter((p) => !p.feito);
+    return { mudou: false, novos };
+  }
+
+  /* Uma imagem nova. g e o recorte quadrado (W x W) em cinzentos; mapa diz onde
+     ele esta na imagem da camara. Devolve o estado e os impactos novos, em mm. */
+  function passo(g, W, mapa) {
+    st.tique++;
+    let palpite = st.disco
+      ? { cx: (st.disco.cx - mapa.x0) / mapa.k, cy: (st.disco.cy - mapa.y0) / mapa.k, r: st.disco.r / mapa.k }
+      : vivoProcurarDisco(g, W, W);
+    let d = palpite ? vivoAfinarDisco(g, W, W, palpite) : null;
+    if (!d && st.disco) {
+      palpite = vivoProcurarDisco(g, W, W);
+      d = palpite ? vivoAfinarDisco(g, W, W, palpite) : null;
+    }
+    if (!d) {
+      st.perdido++; st.quietos = 0;
+      // Mais de um segundo sem ver o alvo (alguem a frente, cartao a ser trocado): a
+      // referencia deixa de valer; fixa-se outra quando o alvo voltar a estar parado.
+      if (st.perdido === 12) referenciaNova();
+      // Perdido ha muito: recomeca do zero quando o alvo voltar.
+      if (st.perdido > 40) { st.disco = null; st.acum = null; st.nAcum = 0; st.ref = null; st.pend = []; st.absorver = []; st.raios = []; st.forma = null; }
+      return { estado: "sem-alvo", disco: st.disco, escala: st.disco ? st.disco.r / Rmm : 0, novos: [], mudou: false, retalho: st.acum };
+    }
+    st.perdido = 0;
+    const novo = { cx: mapa.x0 + d.cx * mapa.k, cy: mapa.y0 + d.cy * mapa.k, r: d.r * mapa.k };
+    const escala = novo.r / Rmm;                         // pixeis da camara por milimetro
+    const limite = Math.max(0.7, 0.12 * escala);         // quanto pode mexer entre duas imagens
+    const estavel = !!st.disco
+      && Math.hypot(novo.cx - st.disco.cx, novo.cy - st.disco.cy) < limite
+      && Math.abs(novo.r - st.disco.r) / st.disco.r < 0.015;
+    st.disco = novo;
+    st.quietos = estavel ? st.quietos + 1 : 0;
+
+    // A camara e o alvo estao parados: o tamanho e a forma do disco nao mudam de uma
+    // imagem para a outra. Usa-se a mediana dos ultimos raios e uma media lenta da
+    // forma, e so o centro e que se mede em cada imagem.
+    const forma = [d.m[0] * d.r, d.m[1] * d.r, d.m[2] * d.r, d.m[3] * d.r];
+    if (st.raios.length && Math.abs(novo.r / vivoMediana(st.raios) - 1) > 0.04) { st.raios = []; st.forma = null; referenciaNova(); }   // mudou o zoom ou a distancia
+    if (estavel || !st.raios.length) { st.raios.push(novo.r); if (st.raios.length > 31) st.raios.shift(); }
+    st.forma = st.forma ? st.forma.map((v, i) => v + (forma[i] - v) * 0.1) : forma;
+    const raioFirme = vivoMediana(st.raios) / mapa.k;
+    amostrar(g, W, { cx: d.cx, cy: d.cy, m: st.forma.map((v) => v / raioFirme), preto: d.preto, papel: d.papel });
+    if (estavel || !st.acum) juntar();
+    const base = { disco: novo, escala: vivoMediana(st.raios) / Rmm, novos: [], mudou: false, retalho: st.acum };
+    if (!st.ref) {
+      if (st.nAcum >= 9 && st.quietos >= 4) st.ref = Float32Array.from(st.acum);
+      return Object.assign(base, { estado: st.ref ? "pronto" : "a-preparar" });
+    }
+    if (!estavel) return Object.assign(base, { estado: "a-mexer" });
+    const res = comparar();
+    return Object.assign(base, { estado: "pronto", novos: res.novos, mudou: res.mudou });
+  }
+
+  /* Recorte da imagem da camara que enquadra o alvo que se esta a seguir. */
+  function recorte(larguraCamara, alturaCamara) {
+    if (!st.disco) return null;
+    const lado = Math.min(larguraCamara, alturaCamara, 2 * Rv * (st.disco.r / Rmm) * VIVO_FOLGA);
+    return {
+      x: Math.max(0, Math.min(larguraCamara - lado, st.disco.cx - lado / 2)),
+      y: Math.max(0, Math.min(alturaCamara - lado, st.disco.cy - lado / 2)),
+      lado
+    };
+  }
+  function referenciaNova() { st.ref = null; st.acum = null; st.nAcum = 0; st.pend = []; st.absorver = []; st.mudanca = 0; st.assentar = 0; }
+  function largar() { referenciaNova(); st.disco = null; st.perdido = 0; st.quietos = 0; st.raios = []; st.forma = null; }
+
+  return { N, S, Rv, raioFuro: rf, passo, recorte, referenciaNova, largar, temAlvo: () => !!st.disco, temReferencia: () => !!st.ref, interno: () => ({ st, dif, retalho }) };
+}
+
+/* ---------- ao vivo: camara e ecra ---------- */
+
+/* A camara do telemovel fica apontada ao alvo (em tripe ou apoio firme). A app
+   recorta a zona do alvo, entrega-a ao seguidor (13-vivo-visao.js) e mostra no
+   lugar do alvo desenhado a imagem alinhada e limpa de ruido, com os aneis por
+   cima. Cada impacto novo que o seguidor confirma entra na serie como um tiro
+   marcado a mao. So funciona fora do claude.ai, onde a pagina pode usar a camara. */
+
+const VIVO_R = 560;             // lado, em pixeis, do recorte que se analisa
+const VIVO_MIN_FURO = 3.2;      // pixeis da camara por furo a partir dos quais se marcam tiros sozinho
+const VIVO = {
+  ligado: false, fase: "parado", erro: "", aLigar: false,
+  stream: null, pista: null, video: $("vivo-video"),
+  recorte: null, pincel: null, canal: null, roi: null,
+  seguidor: null, quadro: { w: 0, h: 0 }, procura: { cx: 0, cy: 0, z: 1 },
+  retalho: null, pincelRetalho: null, imagem: null,
+  relogio: null, escala: 0, lentes: [], lente: "", zoom: null, pintado: "", pedido: 0
+};
+
+function vivoLigado() { return VIVO.ligado; }
+function vivoEmProcura() { return VIVO.ligado && VIVO.fase === "procura"; }
+function vivoPixeisPorFuro() { return VIVO.escala * E.calibre; }
+function vivoPodeMarcar() { return vivoPixeisPorFuro() >= VIVO_MIN_FURO; }
+
+function vivoErro(e) {
+  const nome = e && e.name;
+  if (!AUTONOMA) return "No claude.ai a página não pode usar a câmara. O modo ao vivo funciona na app instalada no telemóvel.";
+  if (nome === "NotAllowedError" || nome === "SecurityError") return "Sem autorização para usar a câmara. Autoriza a câmara para este site nas definições do Safari e toca outra vez em Ao vivo.";
+  if (nome === "NotFoundError" || nome === "OverconstrainedError") return "Não encontrei uma câmara traseira neste dispositivo.";
+  if (nome === "NotReadableError" || nome === "AbortError") return "A câmara está ocupada por outra app. Fecha-a e tenta outra vez.";
+  return "Não foi possível ligar a câmara.";
+}
+
+function vivoPararCamara() {
+  if (VIVO.stream) { try { VIVO.stream.getTracks().forEach((t) => t.stop()); } catch (e) { /* ja parada */ } }
+  VIVO.stream = null; VIVO.pista = null;
+  try { VIVO.video.srcObject = null; } catch (e) { /* sem video */ }
+}
+
+function vivoPrepararTelas() {
+  if (VIVO.recorte) return;
+  VIVO.recorte = document.createElement("canvas");
+  VIVO.recorte.width = VIVO_R; VIVO.recorte.height = VIVO_R;
+  VIVO.pincel = VIVO.recorte.getContext("2d", { willReadFrequently: true });
+  VIVO.canal = new Uint8Array(VIVO_R * VIVO_R);
+  VIVO.retalho = document.createElement("canvas");
+  VIVO.retalho.width = VIVO_N; VIVO.retalho.height = VIVO_N;
+  VIVO.pincelRetalho = VIVO.retalho.getContext("2d");
+  VIVO.imagem = VIVO.pincelRetalho.createImageData(VIVO_N, VIVO_N);
+}
+
+async function ligarVivo(idLente) {
+  if (VIVO.aLigar) return;
+  VIVO.erro = "";
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    VIVO.erro = AUTONOMA ? "Este navegador não dá acesso à câmara." : vivoErro(null);
+    pintar();
+    return;
+  }
+  VIVO.aLigar = true; VIVO.fase = "a-pedir";
+  const pedido = ++VIVO.pedido;
+  vivoPararCamara();
+  pintar();
+  let stream = null;
+  try {
+    const opcoes = { width: { ideal: 3840 }, height: { ideal: 2160 } };
+    if (idLente) opcoes.deviceId = { exact: idLente }; else opcoes.facingMode = { ideal: "environment" };
+    stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: opcoes });
+  } catch (e) {
+    if (pedido !== VIVO.pedido) return;
+    VIVO.aLigar = false; VIVO.ligado = false; VIVO.fase = "parado";
+    clearInterval(VIVO.relogio); VIVO.relogio = null;
+    VIVO.erro = vivoErro(e);
+    pintar();
+    return;
+  }
+  if (pedido !== VIVO.pedido) { try { stream.getTracks().forEach((t) => t.stop()); } catch (e) { /* ja parada */ } return; }
+  VIVO.stream = stream;
+  const v = VIVO.video;
+  v.srcObject = VIVO.stream;
+  try { await v.play(); } catch (e) { /* arranca no primeiro toque */ }
+  VIVO.pista = VIVO.stream.getVideoTracks()[0];
+  let cap = {}, def = {};
+  try { cap = VIVO.pista.getCapabilities ? VIVO.pista.getCapabilities() : {}; def = VIVO.pista.getSettings ? VIVO.pista.getSettings() : {}; } catch (e) { /* sem estas funcoes */ }
+  VIVO.zoom = cap.zoom && cap.zoom.max > cap.zoom.min ? { min: cap.zoom.min, max: cap.zoom.max, passo: cap.zoom.step || 0.1, valor: def.zoom || cap.zoom.min } : null;
+  try {
+    const todos = await navigator.mediaDevices.enumerateDevices();
+    VIVO.lentes = todos.filter((d) => d.kind === "videoinput" && d.label && !/front|frontal|facetime/i.test(d.label));
+  } catch (e) { VIVO.lentes = []; }
+  VIVO.lente = def.deviceId || idLente || "";
+  VIVO.aLigar = false;
+  // Da primeira vez, se o telemovel tiver teleobjetiva, e essa que interessa.
+  if (!idLente) {
+    const tele = VIVO.lentes.find((d) => /tele/i.test(d.label));
+    if (tele && tele.deviceId !== VIVO.lente) return ligarVivo(tele.deviceId);
+  }
+  vivoPrepararTelas();
+  VIVO.seguidor = criarSeguidor(ALVOS[E.alvo], E.calibre);
+  VIVO.quadro = { w: 0, h: 0 };
+  VIVO.ligado = true; VIVO.fase = "procura"; VIVO.escala = 0;
+  E.foto = null; E.detetados = null; E.moverFoto = false;
+  manterEcra(true);
+  clearInterval(VIVO.relogio);
+  VIVO.relogio = setInterval(tiqueVivo, 110);
+  pintar();
+}
+
+function desligarVivo() {
+  VIVO.pedido++;
+  clearInterval(VIVO.relogio); VIVO.relogio = null;
+  vivoPararCamara();
+  const estavaLigado = VIVO.ligado;
+  VIVO.ligado = false; VIVO.aLigar = false; VIVO.fase = "parado"; VIVO.erro = ""; VIVO.escala = 0;
+  if (estavaLigado && E.foto === VIVO.retalho) { E.foto = null; E.fotoT = { auto: false, ox: 0, oy: 0, base: 1, mult: 1 }; }
+  manterEcra(relogioACorrer());
+  pintar();
+}
+
+/* Se mudar o alvo ou o calibre com a camara ligada, o seguidor recomeca com as medidas novas. */
+function vivoReiniciar() {
+  if (!VIVO.ligado) return;
+  VIVO.seguidor = criarSeguidor(ALVOS[E.alvo], E.calibre);
+  VIVO.fase = "procura"; VIVO.escala = 0; E.foto = null;
+}
+
+/* Um tiro novo vindo da camara: entra na serie como um tiro marcado a mao.
+   Devolve o tiro, ou um texto a dizer porque nao entrou. */
+function vivoRegistar(x, y) {
+  if (emProva()) { const motivo = bloqueioProva(); if (motivo) return motivo; }
+  const novo = tiroFixo(x, y);
+  if (emProva()) { novo.c = E.cartao; novo.e = cartaoAtual().e ? 1 : 0; inserirNoCartao(novo); }
+  else E.tiros.push(novo);
+  E.sel = -1; E.mover = false;
+  guardarRascunho();
+  return novo;
+}
+
+function vivoMostrarRetalho(retalho) {
+  const d = VIVO.imagem.data, n = VIVO_N * VIVO_N;
+  // o papel fica a meio tom para os furos claros se verem mais claros do que ele
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    let v = retalho[i] * 150;
+    v = v < 0 ? 0 : v > 255 ? 255 : v;
+    d[j] = v; d[j + 1] = v; d[j + 2] = v; d[j + 3] = 255;
+  }
+  VIVO.pincelRetalho.putImageData(VIVO.imagem, 0, 0);
+  const seg = VIVO.seguidor, Rmm = ALVOS[E.alvo].preto / 2, q = 1 / (seg.S * Rmm);
+  E.foto = VIVO.retalho;
+  E.fotoT = { auto: true, m: [q, 0, 0, q], cx: VIVO_N / 2, cy: VIVO_N / 2, Rmm, pxPorMm: seg.S };
+}
+
+function tiqueVivo() {
+  if (!VIVO.ligado || E.vista !== "alvo" || document.visibilityState === "hidden") return;
+  const v = VIVO.video, FW = v.videoWidth, FH = v.videoHeight;
+  if (!FW || !FH || v.readyState < 2) return;
+  const seg = VIVO.seguidor;
+  if (FW !== VIVO.quadro.w || FH !== VIVO.quadro.h) {            // primeira imagem, ou o telemovel rodou
+    VIVO.quadro = { w: FW, h: FH };
+    VIVO.procura = { cx: FW / 2, cy: FH / 2, z: 1 };
+    seg.largar();
+  }
+  let roi = seg.temAlvo() ? seg.recorte(FW, FH) : null;
+  if (!roi) {
+    const lado = Math.min(FW, FH) / VIVO.procura.z;
+    roi = { lado, x: Math.max(0, Math.min(FW - lado, VIVO.procura.cx - lado / 2)), y: Math.max(0, Math.min(FH - lado, VIVO.procura.cy - lado / 2)) };
+  }
+  VIVO.roi = roi;
+  let dados;
+  try {
+    VIVO.pincel.drawImage(v, roi.x, roi.y, roi.lado, roi.lado, 0, 0, VIVO_R, VIVO_R);
+    dados = VIVO.pincel.getImageData(0, 0, VIVO_R, VIVO_R).data;
+  } catch (e) { return; }
+  vivoCanal(dados, VIVO_R * VIVO_R, VIVO.canal);
+  const res = seg.passo(VIVO.canal, VIVO_R, { x0: roi.x, y0: roi.y, k: roi.lado / VIVO_R });
+  VIVO.escala = res.escala || 0;
+  if (res.estado === "sem-alvo") VIVO.fase = seg.temAlvo() ? "perdido" : "procura";
+  else VIVO.fase = res.estado;
+
+  let mudouSerie = false;
+  if (res.novos.length && vivoPodeMarcar()) {
+    for (const nv of res.novos) {
+      const tiro = vivoRegistar(nv.x, nv.y);
+      if (typeof tiro === "string") { aviso(tiro); continue; }
+      mudouSerie = true;
+      aviso("Novo impacto: " + valorTiro(ALVOS[E.alvo], tiro.v) + (nv.duvida ? ". Confirma a posição." : "."));
+    }
+  }
+  if (res.mudou) aviso("Alvo novo: fixei outra referência.");
+
+  if (VIVO.fase !== "procura" && res.retalho) vivoMostrarRetalho(res.retalho);
+  else if (VIVO.fase === "procura") E.foto = null;
+  if (mudouSerie) pintar();
+  else { pintarAlvo(); pintarVivo(); }
+}
+
+/* Enquanto nao ha alvo a seguir, o ecra mostra a imagem da camara tal como e,
+   com uma mira ao centro: tocar aproxima e centra nesse ponto. */
+function pintarProcura() {
+  const lado = cv.clientWidth;
+  if (!lado) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 3), px = Math.round(lado * dpr);
+  if (cv.width !== px) { cv.width = px; cv.height = px; }
+  const c = cv.getContext("2d");
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.fillStyle = "#000000";
+  c.fillRect(0, 0, lado, lado);
+  if (VIVO.recorte && VIVO.roi) c.drawImage(VIVO.recorte, 0, 0, lado, lado);
+  const m = lado / 2, r = lado * 0.13;
+  c.strokeStyle = cores().ultimo; c.lineWidth = 2;
+  c.beginPath();
+  c.arc(m, m, r, 0, TAU);
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { c.moveTo(m + dx * r * 0.55, m + dy * r * 0.55); c.lineTo(m + dx * r * 1.6, m + dy * r * 1.6); }
+  c.stroke();
+}
+function vivoTocar(ev) {
+  if (!VIVO.roi) return;
+  const caixa = cv.getBoundingClientRect();
+  VIVO.procura.cx = VIVO.roi.x + (ev.clientX - caixa.left) / caixa.width * VIVO.roi.lado;
+  VIVO.procura.cy = VIVO.roi.y + (ev.clientY - caixa.top) / caixa.height * VIVO.roi.lado;
+  if (VIVO.procura.z < 16) VIVO.procura.z *= 2;
+  pintarVivo();
+}
+
+/* painel do modo ao vivo */
+function pintarVivo() {
+  const visivel = VIVO.ligado || VIVO.aLigar || !!VIVO.erro;
+  const pf = vivoPixeisPorFuro(), segue = VIVO.ligado && VIVO.fase !== "procura";
+  // so mexe na pagina quando alguma coisa do painel muda (isto corre varias vezes por segundo)
+  const chave = [visivel, VIVO.fase, VIVO.erro, VIVO.aLigar, segue ? Math.round(pf * 2) : 0, VIVO.lentes.length, VIVO.lente, VIVO.procura.z, !!VIVO.zoom].join("|");
+  if (chave === VIVO.pintado) return;
+  VIVO.pintado = chave;
+  $("vivo-ctl").hidden = !visivel;
+  $("btn-vivo").setAttribute("aria-pressed", String(VIVO.ligado || VIVO.aLigar));
+  if (!visivel) return;
+  let estado, nota = "";
+  if (VIVO.erro) estado = VIVO.erro;
+  else if (VIVO.aLigar || VIVO.fase === "a-pedir") estado = "A ligar a câmara…";
+  else if (VIVO.fase === "procura") { estado = "Aponta para o alvo e toca nele para aproximar."; nota = "O telemóvel tem de ficar parado: usa um tripé ou um apoio firme."; }
+  else if (VIVO.fase === "perdido") estado = "Perdi o alvo de vista. Volta a apontar o telemóvel.";
+  else if (VIVO.fase === "a-preparar") estado = "Alvo encontrado. Não mexas no telemóvel enquanto fixo a imagem de referência…";
+  else if (VIVO.fase === "a-mexer") estado = "A imagem está a mexer. Espero que pare.";
+  else if (vivoPodeMarcar()) estado = "A seguir o alvo: cada impacto novo é marcado sozinho.";
+  else estado = "A seguir o alvo. Marca os tiros com o dedo sobre a imagem: a resolução não chega para os marcar sozinho.";
+  if (segue && pf > 0) {
+    nota = nf1.format(pf) + " px por furo: "
+      + (pf >= 8 ? "boa resolução." : pf >= VIVO_MIN_FURO ? "resolução suficiente. Confirma os tiros junto às linhas." : "resolução baixa. Escolhe a teleobjetiva, aumenta o zoom ou usa um telescópio.");
+  }
+  $("vivo-estado").textContent = estado;
+  $("vivo-nota").textContent = nota;
+  $("vivo-nota").hidden = !nota;
+  $("vivo-luz").className = "vivo-luz" + (VIVO.erro ? " erro" : VIVO.fase === "pronto" ? " pronto" : "");
+
+  const lentes = $("vivo-lente");
+  $("vivo-lente-caixa").hidden = !(VIVO.ligado && VIVO.lentes.length > 1);
+  if (VIVO.ligado && VIVO.lentes.length > 1) {
+    lentes.textContent = "";
+    VIVO.lentes.forEach((d) => lentes.append(h("option", { value: d.deviceId, text: d.label })));
+    lentes.value = VIVO.lente;
+  }
+  $("vivo-zoom-caixa").hidden = !(VIVO.ligado && VIVO.zoom);
+  if (VIVO.ligado && VIVO.zoom) {
+    const z = $("vivo-zoom");
+    z.min = String(VIVO.zoom.min); z.max = String(VIVO.zoom.max); z.step = String(VIVO.zoom.passo); z.value = String(VIVO.zoom.valor);
+  }
+  $("vivo-menos").hidden = !(vivoEmProcura() && VIVO.procura.z > 1);
+  $("vivo-ref").hidden = !(segue && VIVO.fase !== "perdido");
+  $("vivo-procurar").hidden = !segue;
+  $("vivo-parar").hidden = !(VIVO.ligado || VIVO.aLigar);
+}
+
+$("btn-vivo").addEventListener("click", () => { if (VIVO.ligado || VIVO.aLigar) desligarVivo(); else ligarVivo(); });
+$("vivo-parar").addEventListener("click", desligarVivo);
+$("vivo-menos").addEventListener("click", () => { VIVO.procura.z = Math.max(1, VIVO.procura.z / 2); pintarVivo(); });
+$("vivo-ref").addEventListener("click", () => { if (VIVO.seguidor) { VIVO.seguidor.referenciaNova(); aviso("A fixar uma referência nova. Não mexas no telemóvel."); } });
+$("vivo-procurar").addEventListener("click", () => {
+  if (!VIVO.seguidor) return;
+  VIVO.seguidor.largar();
+  VIVO.fase = "procura"; VIVO.procura.z = 1; E.foto = null;
+  pintar();
+});
+$("vivo-lente").addEventListener("change", () => { const id = $("vivo-lente").value; if (id && id !== VIVO.lente) ligarVivo(id); });
+$("vivo-zoom").addEventListener("input", () => {
+  if (!VIVO.pista || !VIVO.zoom) return;
+  VIVO.zoom.valor = Number($("vivo-zoom").value);
+  try { VIVO.pista.applyConstraints({ advanced: [{ zoom: VIVO.zoom.valor }] }).catch(() => {}); } catch (e) { /* sem zoom */ }
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible" || !VIVO.ligado) return;
+  // Ao voltar a app, o telemovel pode ter parado a camara.
+  if (VIVO.pista && VIVO.pista.readyState === "ended") { const lente = VIVO.lente; VIVO.ligado = false; ligarVivo(lente); }
+  else { try { VIVO.video.play().catch(() => {}); } catch (e) { /* sem video */ } manterEcra(true); }
+});
+
 /* ---------- geral: avisos, navegacao e arranque ---------- */
 
 let avisoRelogio = null;
 function aviso(texto) {
-  let t = document.querySelector(".toast");
-  if (!t) { t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); document.body.append(t); }
+  const t = $("aviso");
   t.textContent = texto;
+  t.hidden = false;
   clearTimeout(avisoRelogio);
-  avisoRelogio = setTimeout(() => t.remove(), 3200);
+  avisoRelogio = setTimeout(() => { t.hidden = true; }, 3200);
 }
 
 /* Cada ecra tem um nome no endereco (#alvo, #caderno, #analise, #mais) e cada sessao
@@ -4151,7 +5283,9 @@ function arrancar(dados) {
   fichaParaEcra();
   aplicarTema();
   mostrarVista();
-  abrirLoja();
+  Loja.aberta = abrirLoja();
+  // Uma prova com relogio que sobreviveu a um recarregamento continua a precisar do ecra aceso.
+  if (relogioACorrer()) manterEcra(true);
 }
 
 const quente = window.claude && window.claude.hot;
@@ -4165,7 +5299,17 @@ else arrancar((quente && quente.data) || {});
 <script>
 // Guarda a app no telemovel para abrir sem rede.
 if ("serviceWorker" in navigator) {
+  const jaInstalada = !!navigator.serviceWorker.controller;
   window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+  // Quando chega uma versao nova, a pagina aberta ainda e a antiga: oferece-se atualizar.
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!jaInstalada || document.getElementById("atualizar")) return;
+    const b = document.createElement("button");
+    b.id = "atualizar"; b.type = "button"; b.className = "atualizar";
+    b.textContent = "Há uma versão nova. Toca para atualizar.";
+    b.addEventListener("click", () => location.reload());
+    document.body.append(b);
+  });
 }
 </script>
 </body>
