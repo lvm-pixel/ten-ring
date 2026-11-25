@@ -1,0 +1,2252 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ten Ring">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#e9edf1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1016" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+/* O mesmo ponto de partida que a pagina tem no claude.ai. */
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font: 14px system-ui, -apple-system, sans-serif; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>Ten Ring</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Monitor do posto de tiro: total em numerais largos no topo, alvo a escala ao centro,
+   fita de tiros e leitura do agrupamento por baixo. Uma coluna, ao alcance do polegar. */
+:root {
+  --bg: #e9edf1;
+  --superficie: #f8fafb;
+  --tinta: #101820;
+  --suave: #566273;
+  --linha: #c9d1da;
+  --acento: #1747d1;
+  --sobre-acento: #ffffff;
+  --ultimo: #d9480f;
+  --perigo: #b42318;
+  --alvo-papel: #efe8d4;
+  --alvo-preto: #121514;
+  --alvo-claro: #efe8d4;
+  --alvo-escuro: #23282a;
+  --tiro: #3d6df2;
+  --tiro-borda: #ffffff;
+  --f-mostra: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --f-corpo: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-dados: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1016; --superficie: #141b24; --tinta: #e7ecf2; --suave: #91a0b2;
+    --linha: #273241; --acento: #7da0ff; --sobre-acento: #0a1220; --ultimo: #ff8a4c;
+    --perigo: #ff8f85; --alvo-papel: #d8d1bb; --alvo-preto: #0c0e0d; --alvo-claro: #d8d1bb;
+    --alvo-escuro: #1b2022; --tiro: #5c86ff; --tiro-borda: #ffffff;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1016; --superficie: #141b24; --tinta: #e7ecf2; --suave: #91a0b2;
+  --linha: #273241; --acento: #7da0ff; --sobre-acento: #0a1220; --ultimo: #ff8a4c;
+  --perigo: #ff8f85; --alvo-papel: #d8d1bb; --alvo-preto: #0c0e0d; --alvo-claro: #d8d1bb;
+  --alvo-escuro: #1b2022; --tiro: #5c86ff; --tiro-borda: #ffffff;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--tinta);
+  font-family: var(--f-corpo);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+.app {
+  max-width: 560px;
+  margin-inline: auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+
+/* topo */
+.topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.marca {
+  margin: 0;
+  font-family: var(--f-mostra);
+  font-stretch: 78%;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.marca span { color: var(--acento); }
+.abas { display: flex; border: 1px solid var(--linha); border-radius: 4px; overflow: hidden; }
+.abas a {
+  padding: 9px 16px;
+  min-height: 40px;
+  text-decoration: none;
+  color: var(--suave);
+  font-weight: 500;
+  background: transparent;
+}
+.abas a + a { border-left: 1px solid var(--linha); }
+.abas a[aria-current="page"] { background: var(--tinta); color: var(--bg); }
+
+/* monitor */
+.ecra {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  column-gap: 16px;
+  row-gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--linha);
+}
+.rotulo {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--suave);
+  font-weight: 600;
+}
+.ecra output {
+  display: block;
+  font-family: var(--f-mostra);
+  font-stretch: 72%;
+  font-weight: 800;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+#total { font-size: 64px; }
+.ecra-ultimo { text-align: right; }
+#ultimo { font-size: 36px; color: var(--ultimo); }
+.ecra-linha { grid-column: 1 / -1; margin: 0; color: var(--suave); font-size: 13px; min-width: 0; }
+
+/* alvo */
+.alvo-caixa { position: relative; }
+#alvo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 100%;
+  border: 1px solid var(--linha);
+  border-radius: 3px;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: crosshair;
+  background: var(--alvo-papel);
+}
+.aviso-foto {
+  position: absolute;
+  left: 8px; top: 8px;
+  padding: 4px 8px;
+  background: var(--acento);
+  color: var(--sobre-acento);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 3px;
+}
+.dica, .nota { margin: 0; color: var(--suave); font-size: 13px; }
+
+/* barra de ferramentas */
+.barra { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.barra button, .foto-ctl button, .secundario {
+  min-height: 42px;
+  padding: 8px 12px;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.barra button:disabled { opacity: 0.45; cursor: default; }
+.zoom { display: flex; }
+.zoom button { border-radius: 0; font-family: var(--f-dados); min-width: 44px; padding-inline: 8px; }
+.zoom button:first-child { border-radius: 4px 0 0 4px; }
+.zoom button:last-child { border-radius: 0 4px 4px 0; }
+.zoom button + button { border-left: 0; }
+button[aria-pressed="true"] { background: var(--tinta); color: var(--bg); border-color: var(--tinta); }
+button.armado { background: var(--perigo); color: var(--bg); border-color: var(--perigo); }
+#apagar-sel { color: var(--perigo); }
+.foto-ctl {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--linha);
+  border-radius: 4px;
+}
+.foto-ctl .nota { color: var(--tinta); }
+.foto-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.foto-manual { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; }
+.foto-manual label { grid-column: 1 / -1; font-size: 13px; color: var(--suave); }
+.foto-manual input[type="range"] { width: 100%; min-width: 0; accent-color: var(--acento); }
+
+/* fita de tiros */
+.fita { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.fita li { display: flex; flex-direction: column; gap: 6px; }
+.chips { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-height: 46px;
+  padding: 5px 2px;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.chip small { font-size: 10px; color: var(--suave); font-family: var(--f-dados); line-height: 1; }
+.chip b { font-family: var(--f-dados); font-weight: 600; font-size: 16px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.chip.ultimo b { color: var(--ultimo); }
+.chip[aria-pressed="true"] small { color: var(--bg); }
+.chip[aria-pressed="true"] b { color: var(--bg); }
+.sub {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  color: var(--suave);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding-top: 4px;
+  border-top: 1px solid var(--linha);
+}
+.sub b { font-family: var(--f-dados); font-size: 15px; color: var(--tinta); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+
+/* leitura do agrupamento */
+.leitura h2, .resumo-t, .ficha summary, .tendencia figcaption {
+  margin: 0;
+  font-family: var(--f-mostra);
+  font-stretch: 80%;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.leitura { display: flex; flex-direction: column; gap: 8px; }
+.leitura dl { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.leitura dl div { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 10px; }
+.leitura dt { color: var(--suave); font-size: 13px; }
+.leitura dd { margin: 0; font-weight: 500; }
+
+/* ficha */
+.ficha { border-top: 1px solid var(--linha); padding-top: 10px; }
+.ficha summary { cursor: pointer; padding-block: 6px; min-height: 36px; }
+.ficha summary span { font-family: var(--f-corpo); font-stretch: 100%; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--suave); font-size: 13px; margin-left: 6px; }
+.campos { display: grid; grid-template-columns: 1fr; gap: 4px; padding-top: 8px; }
+.campos label { font-size: 13px; color: var(--suave); margin-top: 8px; }
+.campos input, .campos select, .campos textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 10px;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 4px;
+  font-size: 16px;
+}
+.campos textarea { resize: vertical; }
+
+.principal {
+  min-height: 52px;
+  background: var(--acento);
+  color: var(--sobre-acento);
+  border: 0;
+  border-radius: 4px;
+  font-family: var(--f-mostra);
+  font-stretch: 82%;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.principal:disabled { opacity: 0.4; cursor: default; }
+.estado { margin: 0; font-size: 13px; color: var(--suave); }
+.estado button { margin-left: 6px; }
+
+/* modo de prova */
+.modo { display: flex; align-self: flex-start; }
+.modo button {
+  min-height: 40px;
+  padding: 8px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  font-weight: 500;
+  cursor: pointer;
+}
+.modo button:first-child { border-radius: 4px 0 0 4px; }
+.modo button:last-child { border-radius: 0 4px 4px 0; border-left: 0; }
+.modo button[aria-pressed="true"] { background: var(--tinta); color: var(--bg); border-color: var(--tinta); }
+.prova {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  border-radius: 4px;
+}
+.prova-topo { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; }
+#relogio {
+  display: block;
+  font-family: var(--f-mostra);
+  font-stretch: 72%;
+  font-weight: 800;
+  font-size: 40px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+#relogio.pouco { color: var(--ultimo); }
+#relogio.esgotado { color: var(--perigo); }
+.prova-estado { margin: 0; font-size: 14px; min-width: 0; }
+.prova-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.prova-botoes button, .cartoes button {
+  min-height: 42px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--linha);
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.prova-botoes button.forte { background: var(--acento); color: var(--sobre-acento); border-color: var(--acento); }
+.prova-botoes button.armado { background: var(--perigo); color: var(--bg); border-color: var(--perigo); }
+.cartoes { display: flex; align-items: center; gap: 10px; }
+.cartoes span { font-size: 13px; color: var(--suave); }
+.cartoes button { min-width: 44px; font-size: 18px; line-height: 1; }
+.cartoes button:disabled { opacity: 0.4; cursor: default; }
+.chip.ensaio { border-style: dashed; }
+.chip.ensaio b { color: var(--suave); }
+
+/* caderno */
+.filtros { display: flex; flex-wrap: wrap; gap: 6px; }
+.filtros button {
+  min-height: 38px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--linha);
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.resumo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; padding-block: 4px 12px; border-bottom: 1px solid var(--linha); }
+.resumo div { min-width: 0; }
+.resumo b {
+  display: block;
+  font-family: var(--f-mostra);
+  font-stretch: 74%;
+  font-weight: 800;
+  font-size: 34px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.tendencia { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.tendencia svg { display: block; width: 100%; height: auto; }
+.g-linha { fill: none; stroke: var(--acento); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.g-area { fill: var(--acento); opacity: 0.12; stroke: none; }
+.g-grelha { stroke: var(--linha); stroke-width: 1; fill: none; }
+.g-ponto { fill: var(--ultimo); stroke: none; }
+.g-texto { fill: var(--suave); font-family: var(--f-dados); font-size: 10px; }
+.series { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.series li { border-bottom: 1px solid var(--linha); }
+.series summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  padding-block: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.series summary::-webkit-details-marker { display: none; }
+.s-quando { font-family: var(--f-dados); font-size: 12px; color: var(--suave); }
+.s-total { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-family: var(--f-mostra); font-stretch: 74%; font-weight: 800; font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
+.s-titulo { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.s-sub { grid-column: 1 / -1; font-size: 13px; color: var(--suave); }
+.s-pendente { color: var(--ultimo); font-weight: 600; }
+.s-corpo { display: grid; grid-template-columns: minmax(0, 180px) minmax(0, 1fr); gap: 12px; padding-bottom: 14px; align-items: start; }
+.s-corpo canvas { width: 100%; aspect-ratio: 1 / 1; max-width: 100%; border: 1px solid var(--linha); border-radius: 3px; display: block; background: var(--alvo-papel); }
+.s-meta { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 13px; }
+.s-meta p { margin: 0; overflow-wrap: anywhere; }
+.s-meta .secundario { align-self: flex-start; color: var(--perigo); }
+.vazio { padding: 22px 0; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.vazio p { margin: 0; max-width: 34em; }
+.acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 10px 16px;
+  background: var(--tinta);
+  color: var(--bg);
+  border-radius: 4px;
+  font-weight: 500;
+  z-index: 20;
+}
+@media (max-width: 380px) {
+  #total { font-size: 54px; }
+  .s-corpo { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .toast { animation: sobe 0.18s ease-out; }
+  @keyframes sobe { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topo">
+    <h1 class="marca">Ten <span>Ring</span></h1>
+    <nav class="abas" aria-label="Vistas">
+      <a href="#alvo" id="aba-alvo" aria-current="page">Alvo</a>
+      <a href="#caderno" id="aba-caderno">Caderno</a>
+    </nav>
+  </header>
+
+  <main id="vista-alvo">
+    <div class="modo" id="modo" role="group" aria-label="Modo" hidden>
+      <button type="button" data-modo="treino" aria-pressed="true">Treino</button>
+      <button type="button" data-modo="prova" aria-pressed="false">Prova</button>
+    </div>
+
+    <section class="prova" id="prova" hidden>
+      <div class="prova-topo">
+        <div><span class="rotulo" id="relogio-rot">Tempo</span><output id="relogio">60:00</output></div>
+        <p class="prova-estado" id="prova-estado"></p>
+      </div>
+      <div class="prova-botoes">
+        <button type="button" class="forte" id="prova-comecar">Começar com relógio</button>
+        <button type="button" id="prova-semrelogio">Registar prova já feita</button>
+        <button type="button" class="forte" id="prova-fase">Começar os tiros de prova</button>
+        <button type="button" id="prova-cartao">Alvo novo</button>
+        <button type="button" id="prova-parar">Parar o relógio</button>
+        <button type="button" id="prova-anular">Anular prova</button>
+      </div>
+      <div class="cartoes" id="cartoes" hidden>
+        <button type="button" id="cartao-ant" aria-label="Alvo anterior">‹</button>
+        <span id="cartao-rot"></span>
+        <button type="button" id="cartao-seg" aria-label="Alvo seguinte">›</button>
+      </div>
+    </section>
+
+    <section class="ecra" aria-live="polite">
+      <div class="ecra-total"><span class="rotulo">Total</span><output id="total">0,0</output></div>
+      <div class="ecra-ultimo"><span class="rotulo" id="rot-ultimo">Último</span><output id="ultimo">–</output></div>
+      <p class="ecra-linha" id="linha">Toca no alvo para marcar o primeiro impacto.</p>
+    </section>
+
+    <div class="alvo-caixa">
+      <canvas id="alvo" aria-label="Alvo à escala. Toca para marcar um impacto e arrasta para afinar a posição."></canvas>
+      <div class="aviso-foto" id="aviso-foto" hidden>A mover a fotografia</div>
+    </div>
+    <p class="dica" id="dica">No telemóvel, o ponto aparece acima do dedo. Arrasta para afinar e larga para marcar.</p>
+
+    <div class="barra">
+      <div class="zoom" role="group" aria-label="Ampliação">
+        <button type="button" data-zoom="1" aria-pressed="true">×1</button>
+        <button type="button" data-zoom="2" aria-pressed="false">×2</button>
+        <button type="button" data-zoom="4" aria-pressed="false">×4</button>
+      </div>
+      <button type="button" id="desfazer" disabled>Desfazer</button>
+      <button type="button" id="apagar-sel" hidden>Apagar tiro</button>
+      <button type="button" id="btn-foto">Foto do alvo</button>
+      <button type="button" id="limpar" disabled>Limpar</button>
+      <input type="file" id="foto" accept="image/*" hidden>
+    </div>
+
+    <div class="foto-ctl" id="foto-ctl" hidden>
+      <p class="nota" id="foto-estado"></p>
+      <div class="foto-botoes">
+        <button type="button" id="foto-detetar">Repor furos detetados</button>
+        <button type="button" id="foto-manual">Alinhar à mão</button>
+        <button type="button" id="foto-tirar">Retirar foto</button>
+      </div>
+      <div class="foto-manual" id="foto-manual-ctl" hidden>
+        <label for="foto-tam">Tamanho da fotografia</label>
+        <input type="range" id="foto-tam" min="-100" max="100" value="0">
+        <button type="button" id="foto-mover" aria-pressed="false">Mover</button>
+      </div>
+    </div>
+
+    <ol class="fita" id="fita"></ol>
+
+    <section class="leitura" id="leitura" hidden>
+      <h2>Agrupamento</h2>
+      <dl>
+        <div><dt>Dispersão</dt><dd id="g-disp"></dd></div>
+        <div><dt>Centro do grupo</dt><dd id="g-centro"></dd></div>
+        <div><dt>Correção da mira</dt><dd id="g-corr"></dd></div>
+      </dl>
+      <p class="nota" id="g-nota"></p>
+    </section>
+
+    <details class="ficha" id="ficha">
+      <summary>Ficha da série<span id="ficha-resumo"></span></summary>
+      <div class="campos">
+        <label for="f-alvo">Alvo</label>
+        <select id="f-alvo"></select>
+        <label for="f-cal">Calibre</label>
+        <select id="f-cal"></select>
+        <label for="f-arma">Arma</label>
+        <input id="f-arma" list="l-arma" autocomplete="off" placeholder="Ex.: carabina de ar do clube">
+        <label for="f-mun">Munição e lote</label>
+        <input id="f-mun" list="l-mun" autocomplete="off" placeholder="Ex.: chumbo 4,50 mm, lote 0412">
+        <label for="f-local">Carreira</label>
+        <input id="f-local" list="l-local" autocomplete="off" placeholder="Onde treinaste">
+        <label for="f-clique">Milímetros no alvo por clique da mira</label>
+        <input id="f-clique" inputmode="decimal" autocomplete="off" placeholder="Opcional. Ex.: 0,5">
+        <label for="f-notas">Notas</label>
+        <textarea id="f-notas" rows="2" placeholder="Posição, luz, o que sentiste"></textarea>
+      </div>
+      <datalist id="l-arma"></datalist>
+      <datalist id="l-mun"></datalist>
+      <datalist id="l-local"></datalist>
+    </details>
+
+    <button type="button" class="principal" id="guardar" disabled>Guardar série</button>
+    <p class="estado" id="estado-loja"></p>
+  </main>
+
+  <main id="vista-caderno" hidden>
+    <div class="filtros" id="filtros"></div>
+    <section class="resumo" id="resumo" hidden></section>
+    <figure class="tendencia" id="tendencia" hidden>
+      <figcaption>Média por tiro, série a série</figcaption>
+      <div id="grafico"></div>
+    </figure>
+    <p class="estado" id="estado-caderno">A abrir o caderno…</p>
+    <ul class="series" id="series"></ul>
+    <div class="acoes">
+      <button type="button" class="secundario" id="exportar" hidden>Exportar em CSV</button>
+      <button type="button" class="secundario" id="copia" hidden>Cópia de segurança</button>
+      <button type="button" class="secundario" id="repor" hidden>Repor uma cópia</button>
+      <input type="file" id="repor-ficheiro" accept="application/json,.json" hidden>
+    </div>
+  </main>
+</div>
+
+<script id="detetor">
+/*DETETOR-INICIO*/
+/* Detetor de furos numa fotografia de alvo.
+   Funcoes puras: recebem pixeis RGBA e devolvem a calibracao (centro e escala,
+   tirados do disco preto) e os furos em milimetros. Sem DOM, para correr igual
+   no telemovel e nos testes. */
+(function (raiz) {
+"use strict";
+
+function mediana(v) {
+  if (!v.length) return 0;
+  const c = Array.from(v).sort((a, b) => a - b);
+  return c[c.length >> 1];
+}
+
+// Sistema linear n x n por eliminacao de Gauss com pivot parcial.
+function resolver(A, B, n) {
+  const M = Float64Array.from(A), b = Float64Array.from(B);
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r * n + c]) > Math.abs(M[p * n + c])) p = r;
+    if (Math.abs(M[p * n + c]) < 1e-12) return null;
+    if (p !== c) {
+      for (let k = 0; k < n; k++) { const t = M[c * n + k]; M[c * n + k] = M[p * n + k]; M[p * n + k] = t; }
+      const t = b[c]; b[c] = b[p]; b[p] = t;
+    }
+    for (let r = c + 1; r < n; r++) {
+      const f = M[r * n + c] / M[c * n + c];
+      if (!f) continue;
+      for (let k = c; k < n; k++) M[r * n + k] -= f * M[c * n + k];
+      b[r] -= f * b[c];
+    }
+  }
+  const x = new Float64Array(n);
+  for (let r = n - 1; r >= 0; r--) {
+    let s = b[r];
+    for (let k = r + 1; k < n; k++) s -= M[r * n + k] * x[k];
+    x[r] = s / M[r * n + r];
+  }
+  return x;
+}
+
+/* Elipse por minimos quadrados: conica a x2 + b xy + c y2 + d x + e y = 1 em
+   coordenadas centradas. Devolve o centro e a matriz m que leva um ponto da
+   imagem para o disco unitario: u = m (p - centro). */
+function ajustarElipse(pts) {
+  const n = pts.length;
+  if (n < 12) return null;
+  let mx = 0, my = 0;
+  for (const p of pts) { mx += p[0]; my += p[1]; }
+  mx /= n; my /= n;
+  let esc = 0;
+  for (const p of pts) esc += Math.hypot(p[0] - mx, p[1] - my);
+  esc /= n;
+  if (!(esc > 0)) return null;
+  const A = new Float64Array(25), B = new Float64Array(5);
+  for (const p of pts) {
+    const x = (p[0] - mx) / esc, y = (p[1] - my) / esc;
+    const l = [x * x, x * y, y * y, x, y];
+    for (let i = 0; i < 5; i++) { B[i] += l[i]; for (let j = 0; j < 5; j++) A[i * 5 + j] += l[i] * l[j]; }
+  }
+  const s = resolver(A, B, 5);
+  if (!s) return null;
+  const a = s[0], b = s[1], c = s[2], d = s[3], e = s[4];
+  const det = 4 * a * c - b * b;
+  if (!(det > 1e-12)) return null;
+  const x0 = (b * e - 2 * c * d) / det, y0 = (b * d - 2 * a * e) / det;
+  const k = 1 - (a * x0 * x0 + b * x0 * y0 + c * y0 * y0 + d * x0 + e * y0);
+  if (!(k > 0)) return null;
+  const q11 = a / k, q12 = b / (2 * k), q22 = c / k;
+  const meio = (q11 + q22) / 2, raiz2 = Math.sqrt(((q11 - q22) / 2) ** 2 + q12 * q12);
+  const l1 = meio + raiz2, l2 = meio - raiz2;
+  if (!(l2 > 0)) return null;
+  let vx = l1 - q22, vy = q12;
+  if (Math.hypot(vx, vy) < 1e-12) { vx = q12; vy = l1 - q11; }
+  if (Math.hypot(vx, vy) < 1e-12) { vx = 1; vy = 0; }
+  const nv = Math.hypot(vx, vy); vx /= nv; vy /= nv;
+  const s1 = Math.sqrt(l1), s2 = Math.sqrt(l2);
+  // raiz quadrada de Q: s1 v v' + s2 w w', com w perpendicular a v
+  const m11 = s1 * vx * vx + s2 * vy * vy;
+  const m12 = (s1 - s2) * vx * vy;
+  const m22 = s1 * vy * vy + s2 * vx * vx;
+  return {
+    cx: mx + x0 * esc, cy: my + y0 * esc,
+    m: [m11 / esc, m12 / esc, m12 / esc, m22 / esc],
+    maior: esc / s2, menor: esc / s1
+  };
+}
+
+function normalizado(el, x, y) {
+  const dx = x - el.cx, dy = y - el.cy;
+  return [el.m[0] * dx + el.m[1] * dy, el.m[2] * dx + el.m[3] * dy];
+}
+
+// Erosao (modo 1) ou dilatacao (modo 0) binaria com janela quadrada de raio r.
+function morfologia(src, w, h, r, modo) {
+  const tmp = new Uint8Array(w * h), out = new Uint8Array(w * h);
+  const cheio = 2 * r + 1;
+  const pre = new Int32Array(Math.max(w, h) + 1);
+  for (let y = 0; y < h; y++) {
+    const o = y * w;
+    for (let x = 0; x < w; x++) pre[x + 1] = pre[x] + src[o + x];
+    for (let x = 0; x < w; x++) {
+      const a = Math.max(0, x - r), b = Math.min(w, x + r + 1);
+      const soma = pre[b] - pre[a];
+      tmp[o + x] = modo ? (soma === cheio ? 1 : 0) : (soma > 0 ? 1 : 0);
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; y++) pre[y + 1] = pre[y] + tmp[y * w + x];
+    for (let y = 0; y < h; y++) {
+      const a = Math.max(0, y - r), b = Math.min(h, y + r + 1);
+      const soma = pre[b] - pre[a];
+      out[y * w + x] = modo ? (soma === cheio ? 1 : 0) : (soma > 0 ? 1 : 0);
+    }
+  }
+  return out;
+}
+
+// Componentes ligados (vizinhanca 4). Devolve etiquetas e estatisticas.
+function componentes(m, w, h) {
+  const et = new Int32Array(w * h);
+  const pilha = new Int32Array(w * h);
+  const lista = [];
+  for (let i = 0; i < w * h; i++) {
+    if (!m[i] || et[i]) continue;
+    const id = lista.length + 1;
+    let topo = 0, area = 0, sx = 0, sy = 0, x0 = w, x1 = 0, y0 = h, y1 = 0;
+    pilha[topo++] = i; et[i] = id;
+    while (topo) {
+      const p = pilha[--topo];
+      const x = p % w, y = (p - x) / w;
+      area++; sx += x; sy += y;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      if (x > 0 && m[p - 1] && !et[p - 1]) { et[p - 1] = id; pilha[topo++] = p - 1; }
+      if (x < w - 1 && m[p + 1] && !et[p + 1]) { et[p + 1] = id; pilha[topo++] = p + 1; }
+      if (y > 0 && m[p - w] && !et[p - w]) { et[p - w] = id; pilha[topo++] = p - w; }
+      if (y < h - 1 && m[p + w] && !et[p + w]) { et[p + w] = id; pilha[topo++] = p + w; }
+    }
+    lista.push({ id, area, cx: sx / area, cy: sy / area, x0, x1, y0, y1 });
+  }
+  return { et, lista };
+}
+
+// Transformada de distancia chamfer 3-4. Devolve distancia ao fundo em pixeis.
+function distancia(m, w, h) {
+  const G = 1 << 28;
+  const d = new Int32Array(w * h);
+  for (let i = 0; i < w * h; i++) d[i] = m[i] ? G : 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (!d[i]) continue;
+    let v = d[i];
+    if (x > 0) v = Math.min(v, d[i - 1] + 3); else v = Math.min(v, 3);
+    if (y > 0) {
+      v = Math.min(v, d[i - w] + 3);
+      if (x > 0) v = Math.min(v, d[i - w - 1] + 4);
+      if (x < w - 1) v = Math.min(v, d[i - w + 1] + 4);
+    } else v = Math.min(v, 3);
+    d[i] = v;
+  }
+  for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) {
+    const i = y * w + x;
+    if (!d[i]) continue;
+    let v = d[i];
+    if (x < w - 1) v = Math.min(v, d[i + 1] + 3); else v = Math.min(v, 3);
+    if (y < h - 1) {
+      v = Math.min(v, d[i + w] + 3);
+      if (x < w - 1) v = Math.min(v, d[i + w + 1] + 4);
+      if (x > 0) v = Math.min(v, d[i + w - 1] + 4);
+    } else v = Math.min(v, 3);
+    d[i] = v;
+  }
+  const out = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) out[i] = d[i] / 3;
+  return out;
+}
+
+// Centro de um circulo de raio conhecido ajustado a pontos da orla (Gauss-Newton).
+function centroDeRaioFixo(pts, cx, cy, r) {
+  for (let it = 0; it < 8; it++) {
+    let a11 = 0, a12 = 0, a22 = 0, b1 = 0, b2 = 0;
+    for (const p of pts) {
+      const dx = p[0] - cx, dy = p[1] - cy;
+      const dist = Math.hypot(dx, dy) || 1e-9;
+      const nx = dx / dist, ny = dy / dist, err = dist - r;
+      a11 += nx * nx; a12 += nx * ny; a22 += ny * ny;
+      b1 += nx * err; b2 += ny * err;
+    }
+    const det = a11 * a22 - a12 * a12;
+    if (Math.abs(det) < 1e-9) break;
+    const ddx = (a22 * b1 - a12 * b2) / det, ddy = (a11 * b2 - a12 * b1) / det;
+    cx += ddx; cy += ddy;
+    if (Math.hypot(ddx, ddy) < 0.01) break;
+  }
+  return [cx, cy];
+}
+
+function analisar(rgba, W, H, def, calibre) {
+  const falha = (motivo) => ({ ok: false, motivo });
+  const n = W * H;
+  const L = new Uint8Array(n), S = new Float32Array(n);
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    const r = rgba[j], g = rgba[j + 1], b = rgba[j + 2];
+    const mx = r > g ? (r > b ? r : b) : (g > b ? g : b);
+    const mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
+    L[i] = (r * 77 + g * 150 + b * 29) >> 8;
+    S[i] = mx ? (mx - mn) / mx : 0;
+  }
+
+  /* 1. Disco preto: procura-se numa mascara reduzida a mancha escura mais
+        parecida com um disco. */
+  const f = Math.max(1, Math.ceil(Math.max(W, H) / 420));
+  const sw = Math.floor(W / f), sh = Math.floor(H / f);
+  const hist = new Uint32Array(256);
+  const peq = new Uint8Array(sw * sh);
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+    const v = L[(y * f + (f >> 1)) * W + x * f + (f >> 1)];
+    peq[y * sw + x] = v; hist[v]++;
+  }
+  const perc = (p) => { let ac = 0; const alvo = sw * sh * p; for (let v = 0; v < 256; v++) { ac += hist[v]; if (ac >= alvo) return v; } return 255; };
+  const nivelEscuro = perc(0.02), nivelMeio = perc(0.6);
+  const corte = Math.min(110, nivelEscuro + 0.4 * (nivelMeio - nivelEscuro));
+  const masc = new Uint8Array(sw * sh);
+  for (let i = 0; i < sw * sh; i++) masc[i] = peq[i] <= corte ? 1 : 0;
+  const cc = componentes(masc, sw, sh);
+  let melhor = null, melhorNota = 0;
+  for (const c of cc.lista) {
+    const bw = c.x1 - c.x0 + 1, bh = c.y1 - c.y0 + 1;
+    if (bw < 10 || bh < 10) continue;
+    if (c.x0 === 0 || c.y0 === 0 || c.x1 === sw - 1 || c.y1 === sh - 1) continue;
+    const aspeto = Math.min(bw, bh) / Math.max(bw, bh);
+    const cheio = c.area / (bw * bh);
+    if (aspeto < 0.72 || cheio < 0.45 || cheio > 0.9) continue;
+    const nota = c.area * aspeto * (1 - Math.abs(cheio - 0.74));
+    if (nota > melhorNota) { melhorNota = nota; melhor = c; }
+  }
+  if (!melhor) return falha("nao encontrei o disco preto do alvo");
+  const cx0 = (melhor.cx + 0.5) * f, cy0 = (melhor.cy + 0.5) * f;
+  const r0 = Math.max(melhor.x1 - melhor.x0 + 1, melhor.y1 - melhor.y0 + 1) * f / 2;
+
+  /* 2. Niveis de preto e de papel a volta do disco. */
+  const amostrasPreto = [];
+  for (let i = 0; i < sw * sh; i++) if (cc.et[i] === melhor.id) amostrasPreto.push(peq[i]);
+  const Lb0 = mediana(amostrasPreto);
+  const anelL = [], anelS = [];
+  for (let a = 0; a < 360; a += 2) {
+    const dx = Math.cos(a * Math.PI / 180), dy = Math.sin(a * Math.PI / 180);
+    for (let q = 1.1; q <= 1.24; q += 0.035) {
+      const x = Math.round(cx0 + dx * r0 * q), y = Math.round(cy0 + dy * r0 * q);
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      anelL.push(L[y * W + x]); anelS.push(S[y * W + x]);
+    }
+  }
+  if (anelL.length < 60) return falha("o alvo esta cortado na fotografia");
+  const Lp0 = mediana(anelL);
+  if (Lp0 - Lb0 < 40) return falha("pouco contraste entre o preto e o papel");
+
+  /* 3. Orla do disco por raios, e elipse ajustada com rejeicao de desvios. */
+  const Te = (Lb0 + Lp0) / 2;
+  const janela = 0.22 * r0, passo = 0.5;
+  let pontos = [];
+  for (let a = 0; a < 360; a++) {
+    const dx = Math.cos(a * Math.PI / 180), dy = Math.sin(a * Math.PI / 180);
+    let ultimo = -1, claro = 0, borda = -1;
+    for (let r = 0.3 * r0; r <= 1.9 * r0; r += passo) {
+      const x = Math.round(cx0 + dx * r), y = Math.round(cy0 + dy * r);
+      if (x < 0 || y < 0 || x >= W || y >= H) break;
+      if (L[y * W + x] <= Te) { ultimo = r; claro = 0; }
+      else if (ultimo >= 0) { claro += passo; if (claro >= janela) { borda = ultimo; break; } }
+    }
+    if (borda > 0) pontos.push([cx0 + dx * (borda + passo / 2), cy0 + dy * (borda + passo / 2)]);
+  }
+  if (pontos.length < 150) return falha("nao consegui seguir a orla do disco preto");
+  let el = ajustarElipse(pontos);
+  for (let it = 0; it < 4 && el; it++) {
+    const bons = pontos.filter((p) => { const u = normalizado(el, p[0], p[1]); return Math.abs(Math.hypot(u[0], u[1]) - 1) < 0.025; });
+    if (bons.length < 120 || bons.length === pontos.length) { if (bons.length >= 120) pontos = bons; break; }
+    pontos = bons;
+    el = ajustarElipse(pontos);
+  }
+  if (!el) return falha("nao consegui ajustar o disco preto");
+  if (el.menor / el.maior < 0.6) return falha("a fotografia esta demasiado inclinada");
+
+  const Rmm = def.preto / 2;
+  const s = Math.sqrt(el.maior * el.menor) / Rmm;          // pixeis por milimetro
+  const rFuro = (calibre / 2) * s;                           // raio do furo em pixeis
+  if (rFuro < 3) return falha("o alvo esta demasiado pequeno na fotografia");
+
+  /* 4. Mascara de furos dentro do anel 1: zonas claras e pouco coloridas.
+        O papel bege e a impressao sao coloridos ou escuros; o que se ve por
+        tras de um furo e cinzento claro. */
+  const uMax = (def.aneis[def.aneis.length - 1] / 2) / Rmm;
+  const rPx = uMax * el.maior + 2;
+  const bx0 = Math.max(0, Math.floor(el.cx - rPx)), bx1 = Math.min(W - 1, Math.ceil(el.cx + rPx));
+  const by0 = Math.max(0, Math.floor(el.cy - rPx)), by1 = Math.min(H - 1, Math.ceil(el.cy + rPx));
+  const w = bx1 - bx0 + 1, h = by1 - by0 + 1;
+
+  const papL = [], papS = [], preL = [];
+  for (let y = by0; y <= by1; y += 2) for (let x = bx0; x <= bx1; x += 2) {
+    const u = normalizado(el, x, y), ru = Math.hypot(u[0], u[1]);
+    const i = y * W + x;
+    if (ru > 1.06 && ru < 1.2) { papL.push(L[i]); papS.push(S[i]); }
+    else if (ru < 0.9 && L[i] <= Te) preL.push(L[i]);
+  }
+  const Lp = mediana(papL), Sp = mediana(papS), Lb = mediana(preL);
+  const papelColorido = Sp >= 0.18;
+  const limiarL = Lb + 0.5 * (Lp - Lb);
+  const limiarS = 0.6 * Sp;
+
+  const bruto = new Uint8Array(w * h);
+  const limiteU = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const u = normalizado(el, x + bx0, y + by0), ru = Math.hypot(u[0], u[1]);
+    if (ru > uMax) continue;
+    const i = (y + by0) * W + x + bx0;
+    let furo;
+    if (papelColorido) furo = L[i] > limiarL && S[i] < limiarS;
+    else furo = ru < 0.985 && L[i] > limiarL;     // papel branco: so a zona preta
+    if (furo) bruto[y * w + x] = 1;
+    if (ru > uMax - 2.5 / el.maior) limiteU[y * w + x] = 1;
+  }
+
+  /* 5. Abertura morfologica: apaga linhas, numeros e reflexos finos. */
+  const rAbrir = Math.max(1, Math.round(0.9 * s));
+  const aberta = morfologia(morfologia(bruto, w, h, rAbrir, 1), w, h, rAbrir, 0);
+
+  const comp = componentes(aberta, w, h);
+  const areaFuro = Math.PI * rFuro * rFuro;
+  const valido = new Uint8Array(comp.lista.length + 1);
+  const tocaLimite = new Uint8Array(comp.lista.length + 1);
+  for (let i = 0; i < w * h; i++) if (comp.et[i] && limiteU[i]) tocaLimite[comp.et[i]] = 1;
+  for (const c of comp.lista) {
+    if (c.area < 0.3 * areaFuro || c.area > 14 * areaFuro) continue;
+    if (tocaLimite[c.id]) continue;
+    valido[c.id] = 1;
+  }
+  const limpa = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) if (comp.et[i] && valido[comp.et[i]]) limpa[i] = 1;
+
+  // Se as manchas mais pequenas nao tem o tamanho de um furo deste calibre, o alvo
+  // escolhido nao deve ser o da fotografia (a escala vem do diametro do disco preto).
+  const raiosManchas = comp.lista.filter((c) => valido[c.id]).map((c) => Math.sqrt(c.area / Math.PI)).sort((a, b) => a - b);
+  const rTipico = raiosManchas.length ? raiosManchas[Math.floor(raiosManchas.length * 0.25)] : 0;
+  const escalaSuspeita = rTipico > 0 && (rTipico > 1.4 * rFuro || rTipico < 0.55 * rFuro);
+
+  /* 6. Candidatos a centro: maximos da transformada de distancia. Sao
+        propositadamente generosos; a escolha final faz-se no passo 7. */
+  const dist = distancia(limpa, w, h);
+  const cand = [];
+  for (let i = 0; i < w * h; i++) if (dist[i] >= 0.55 * rFuro) cand.push(i);
+  cand.sort((a, b) => dist[b] - dist[a]);
+  const picos = [];
+  const sepMin = 0.7 * rFuro;
+  for (const i of cand) {
+    const x = i % w, y = (i - x) / w;
+    let livre = true;
+    for (const p of picos) if (Math.hypot(p.x - x, p.y - y) < sepMin) { livre = false; break; }
+    if (livre) picos.push({ x, y, d: dist[i], comp: comp.et[i] });
+  }
+  const porComp = new Map();
+  for (const p of picos) { if (!porComp.has(p.comp)) porComp.set(p.comp, []); porComp.get(p.comp).push(p); }
+
+  // pixeis e orla de cada mancha
+  const pixeis = new Map(), orla = new Map();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (!limpa[i]) continue;
+    const id = comp.et[i];
+    if (!pixeis.has(id)) { pixeis.set(id, []); orla.set(id, []); }
+    pixeis.get(id).push([x, y]);
+    if (x === 0 || y === 0 || x === w - 1 || y === h - 1 || !limpa[i - 1] || !limpa[i + 1] || !limpa[i - w] || !limpa[i + w]) orla.get(id).push([x, y]);
+  }
+
+  // raio aparente de um furo nesta fotografia, tirado das manchas que sao claramente um so tiro
+  const raiosSoltos = [];
+  for (const c of comp.lista) if (valido[c.id] && c.area > 0.6 * areaFuro && c.area < 1.3 * areaFuro) raiosSoltos.push(Math.sqrt(c.area / Math.PI));
+  const rAparente = raiosSoltos.length ? mediana(raiosSoltos) : 0.93 * rFuro;
+  const areaDisco = Math.PI * rAparente * rAparente;
+
+  /* 7. Para cada mancha escolhe-se o conjunto de circulos do tamanho de um furo
+        que melhor a reproduz. Um maximo falso entre dois furos sobrepostos nao
+        melhora o ajuste e fica de fora. */
+  const furos = [];
+  for (const c of comp.lista) {
+    if (!valido[c.id] || !porComp.has(c.id)) continue;
+    const meus = porComp.get(c.id).slice(0, 7);
+    const pxs = pixeis.get(c.id), pts = orla.get(c.id);
+    const rho = 1.03 * rAparente, m = Math.ceil(rho) + 1;
+    const gx0 = c.x0 - m, gy0 = c.y0 - m, gw = c.x1 - c.x0 + 1 + 2 * m, gh = c.y1 - c.y0 + 1 + 2 * m;
+    const dentro = new Uint8Array(gw * gh), cobre = new Uint8Array(gw * gh);
+    for (const q of pxs) dentro[(q[1] - gy0) * gw + (q[0] - gx0)] = 1;
+    meus.forEach((p, j) => {
+      const x0 = Math.max(gx0, Math.floor(p.x - rho)), x1 = Math.min(gx0 + gw - 1, Math.ceil(p.x + rho));
+      const y0 = Math.max(gy0, Math.floor(p.y - rho)), y1 = Math.min(gy0 + gh - 1, Math.ceil(p.y + rho));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        if ((x - p.x) * (x - p.x) + (y - p.y) * (y - p.y) <= rho * rho) cobre[(y - gy0) * gw + (x - gx0)] |= 1 << j;
+      }
+    });
+    let melhorSub = 1, melhorCusto = Infinity, melhorFalta = 0;
+    for (let sub = 1; sub < 1 << meus.length; sub++) {
+      let falta = 0, sobra = 0, nc = 0;
+      for (let b = sub; b; b &= b - 1) nc++;
+      for (let i = 0; i < gw * gh; i++) {
+        const cob = (cobre[i] & sub) !== 0;
+        if (dentro[i]) { if (!cob) falta++; } else if (cob) sobra++;
+      }
+      const custo = falta + sobra + 0.12 * nc * areaDisco;
+      if (custo < melhorCusto) { melhorCusto = custo; melhorSub = sub; melhorFalta = falta; }
+    }
+    const escolhidos = meus.filter((p, j) => melhorSub & (1 << j));
+    const sozinho = escolhidos.length === 1;
+    const rAjuste = sozinho ? Math.min(Math.sqrt(c.area / Math.PI), 1.25 * rAparente) : rAparente;
+    const duvida = melhorFalta > 0.4 * areaDisco;
+    for (const p of escolhidos) {
+      const proximos = pts.filter((q) => {
+        const dq = Math.hypot(q[0] - p.x, q[1] - p.y);
+        if (dq > 1.45 * rAjuste) return false;
+        for (const o of escolhidos) if (o !== p && Math.hypot(q[0] - o.x, q[1] - o.y) < dq) return false;
+        return true;
+      });
+      let centro = [p.x, p.y];
+      if (proximos.length >= 8) centro = centroDeRaioFixo(proximos, p.x, p.y, rAjuste);
+      if (Math.hypot(centro[0] - p.x, centro[1] - p.y) > rFuro) centro = [p.x, p.y];
+      const px = centro[0] + bx0, py = centro[1] + by0;
+      const u = normalizado(el, px, py);
+      furos.push({ x: Rmm * u[0], y: -Rmm * u[1], px, py, duvida, junto: !sozinho });
+    }
+  }
+
+  return {
+    ok: true,
+    centro: { x: el.cx, y: el.cy },
+    pxPorMm: s,
+    eixos: [el.maior, el.menor],
+    m: el.m,
+    furos,
+    escalaSuspeita,
+    niveis: { preto: Lb, papel: Lp, satPapel: Sp, papelColorido },
+    rFuroPx: rFuro, rAparentePx: rAparente
+  };
+}
+
+raiz.DetetorAlvo = { analisar };
+})(typeof window !== "undefined" ? window : globalThis);
+/*DETETOR-FIM*/
+</script>
+
+<script>
+(() => {
+"use strict";
+
+/* Dimensoes oficiais ISSF (Regras Tecnicas Gerais, 6.3.4): diametro de cada anel
+   em mm, do 10 para fora. "interior" e o diametro do dez interior; na carabina de
+   ar nao ha anel, vale o ponto de 10 totalmente coberto pelo chumbo. */
+const ALVOS = {
+  /* Carabina de cano articulado (CCART). Regulamento da FPT de 20 de outubro de 2021,
+     artigo 4.o: cartao de 135 a 145 mm de lado; aneis de 5 a 95 mm, medidos no bordo
+     exterior; zona do 7 ao 9 a preto e o 10 a claro. A prova pontua em inteiros e
+     tem 40 tiros de pe numa hora (artigo 9.o). A chave "c14" e so o nome interno. */
+  c14: { nome: "Carabina de cano articulado (CCART)", curto: "CCART", aneis: [5, 15, 25, 35, 45, 55, 65, 75, 85, 95], preto: 35, interior: null, calibre: 4.5, numeros: 9, inteiros: true, prova: 40, minutos: 60 },
+  ar10: { nome: "Carabina de ar 10 m, alvo ISSF", curto: "Carabina ar ISSF", aneis: [0.5, 5.5, 10.5, 15.5, 20.5, 25.5, 30.5, 35.5, 40.5, 45.5], preto: 30.5, interior: null, calibre: 4.5, numeros: 8 },
+  ap10: { nome: "Pistola de ar 10 m", curto: "Pistola ar 10 m", aneis: [11.5, 27.5, 43.5, 59.5, 75.5, 91.5, 107.5, 123.5, 139.5, 155.5], preto: 59.5, interior: 5, calibre: 4.5, numeros: 8 },
+  c50: { nome: "Carabina 50 m", curto: "Carabina 50 m", aneis: [10.4, 26.4, 42.4, 58.4, 74.4, 90.4, 106.4, 122.4, 138.4, 154.4], preto: 112.4, interior: 5, calibre: 5.6, numeros: 8 },
+  p25: { nome: "Pistola 25 m precisão e 50 m", curto: "Pistola 25 m precisão", aneis: [50, 100, 150, 200, 250, 300, 350, 400, 450, 500], preto: 200, interior: 25, calibre: 5.6, numeros: 9 },
+  vr25: { nome: "Pistola 25 m tiro rápido", curto: "Pistola 25 m rápido", aneis: [100, 180, 260, 340, 420, 500], preto: 500, interior: 50, calibre: 5.6, numeros: 9 }
+};
+const CALIBRES = [
+  { v: 4.5, n: "4,5 mm (ar comprimido)" },
+  { v: 5.6, n: "5,6 mm (.22 LR)" },
+  { v: 7.65, n: "7,65 mm (.32)" },
+  { v: 9.65, n: "9,65 mm (.38)" }
+];
+const CHAVE = { rascunho: "caderno109.rascunho", series: "caderno109.series", pendentes: "caderno109.pendentes" };
+
+const nf1 = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const $ = (id) => document.getElementById(id);
+const r2 = (n) => Math.round(n * 100) / 100;
+
+/* ---------- pontuacao ---------- */
+
+/* Regra 6.3.3.1: a zona de cada anel divide-se em dez partes iguais, de ,0 a ,9.
+   Um furo vale o anel mais alto que a sua orla toca, por isso mede-se a orla
+   interior do furo: distancia do centro menos o raio do projetil. */
+function pontuar(def, dist, calibre) {
+  const r10 = def.aneis[0] / 2;
+  const largura = (def.aneis[1] - def.aneis[0]) / 2;
+  const orla = dist - calibre / 2;
+  const cont = 10 + (r10 - orla) / largura;
+  const minimo = 11 - def.aneis.length;
+  let v = Math.floor(cont * 10 + 1e-7) / 10;
+  if (v > 10.9) v = 10.9;
+  if (v < minimo) v = 0;
+  const interior = def.interior == null
+    ? dist <= calibre / 2 - r10 + 1e-9
+    : orla <= def.interior / 2 + 1e-9;
+  return { v, interior: v >= 10 && interior };
+}
+
+function estatisticas(tiros) {
+  const n = tiros.length;
+  let total = 0, inteiro = 0, interiores = 0, sx = 0, sy = 0, disp = 0;
+  for (let i = 0; i < n; i++) {
+    const t = tiros[i];
+    total += t.v;
+    inteiro += Math.floor(t.v + 1e-9);
+    if (t.i) interiores++;
+    sx += t.x; sy += t.y;
+    for (let j = i + 1; j < n; j++) {
+      const d = Math.hypot(t.x - tiros[j].x, t.y - tiros[j].y);
+      if (d > disp) disp = d;
+    }
+  }
+  return {
+    n, total: Math.round(total * 10) / 10, inteiro, interiores,
+    cx: n ? sx / n : 0, cy: n ? sy / n : 0, disp
+  };
+}
+
+/* ---------- estado ---------- */
+
+const E = {
+  alvo: "c14", calibre: 4.5, zoom: 1, tiros: [], sel: -1, prov: null,
+  arma: "", municao: "", local: "", notas: "", clique: "",
+  foto: null, fotoT: { auto: false, ox: 0, oy: 0, base: 1, mult: 1 }, moverFoto: false, detetados: null,
+  // Modo de prova: cada tiro leva o alvo de papel em que esta (c) e se e de ensaio (e).
+  modo: "treino", prova: provaNova(), cartao: 0,
+  vista: "alvo", filtro: null
+};
+let series = [];
+let pendentes = [];
+const Loja = { modo: "a-abrir", col: null, pronto: false, lento: false, configLida: false, aEnviar: false, downloads: null };
+// Fora do claude.ai a app corre sozinha: guarda no dispositivo e entrega ficheiros diretamente.
+const AUTONOMA = !(window.claude && typeof window.claude.use === "function");
+
+const cv = $("alvo");
+let kAtual = 1;
+
+/* ---------- desenho ---------- */
+
+function cores() {
+  const s = getComputedStyle(document.documentElement);
+  const g = (n) => s.getPropertyValue(n).trim();
+  return {
+    papel: g("--alvo-papel"), preto: g("--alvo-preto"), claro: g("--alvo-claro"),
+    escuro: g("--alvo-escuro"), tiro: g("--tiro"), borda: g("--tiro-borda"),
+    ultimo: g("--ultimo"), acento: g("--acento")
+  };
+}
+
+function desenhar(tela, def, tiros, o) {
+  const lado = tela.clientWidth;
+  if (!lado) return 1;
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const px = Math.round(lado * dpr);
+  if (tela.width !== px) { tela.width = px; tela.height = px; }
+  const c = tela.getContext("2d");
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const K = cores();
+  const exterior = def.aneis[def.aneis.length - 1];
+  const raioVista = (exterior / 2 * 1.08) / (o.zoom || 1);
+  const k = (lado / 2) / raioVista;
+  const mx = lado / 2, my = lado / 2;
+  const TAU = Math.PI * 2;
+
+  c.fillStyle = K.papel;
+  c.fillRect(0, 0, lado, lado);
+
+  if (o.foto && o.fotoT.auto) {
+    // Retifica a fotografia: o disco preto, que na foto e uma elipse, fica redondo e ao centro.
+    const t = o.fotoT, g = k * t.Rmm;
+    const ta = g * t.m[0], tb = g * t.m[2], tc = g * t.m[1], td = g * t.m[3];
+    c.save();
+    c.transform(ta, tb, tc, td, mx - (ta * t.cx + tc * t.cy), my - (tb * t.cx + td * t.cy));
+    c.drawImage(o.foto, 0, 0);
+    c.restore();
+  } else if (o.foto) {
+    const mmpp = o.fotoT.base * o.fotoT.mult;
+    const w = o.foto.width * mmpp * k, h = o.foto.height * mmpp * k;
+    c.drawImage(o.foto, mx + o.fotoT.ox * k - w / 2, my - o.fotoT.oy * k - h / 2, w, h);
+  } else {
+    c.fillStyle = K.preto;
+    c.beginPath(); c.arc(mx, my, def.preto / 2 * k, 0, TAU); c.fill();
+  }
+
+  for (const d of def.aneis) {
+    const dentro = d <= def.preto + 1e-6;
+    c.strokeStyle = o.foto ? K.acento : (dentro ? K.claro : K.escuro);
+    c.lineWidth = o.foto ? 1.4 : 1;
+    c.beginPath(); c.arc(mx, my, Math.max(d / 2 * k, 0.7), 0, TAU); c.stroke();
+  }
+  if (def.interior == null) {
+    c.fillStyle = o.foto ? K.acento : K.claro;
+    c.beginPath(); c.arc(mx, my, Math.max(def.aneis[0] / 2 * k, 1.3), 0, TAU); c.fill();
+  } else {
+    c.save();
+    c.setLineDash([3, 3]);
+    c.strokeStyle = o.foto ? K.acento : K.claro;
+    c.lineWidth = 1;
+    c.beginPath(); c.arc(mx, my, def.interior / 2 * k, 0, TAU); c.stroke();
+    c.restore();
+  }
+
+  if (o.numeros && !o.foto) {
+    const minimo = 11 - def.aneis.length;
+    c.textAlign = "center"; c.textBaseline = "middle";
+    for (let n = minimo; n <= def.numeros; n++) {
+      const fora = def.aneis[10 - n] / 2, dentro = def.aneis[9 - n] / 2;
+      const banda = (fora - dentro) * k;
+      if (banda < 11) continue;
+      const meio = (fora + dentro) / 2 * k;
+      if (meio > lado / 2 - 4) continue;
+      c.font = "500 " + Math.min(banda * 0.5, 12).toFixed(1) + "px 'IBM Plex Mono', ui-monospace, monospace";
+      c.fillStyle = fora * 2 <= def.preto + 1e-6 ? K.claro : K.escuro;
+      c.fillText(String(n), mx - meio, my);
+      c.fillText(String(n), mx + meio, my);
+      c.fillText(String(n), mx, my - meio);
+      c.fillText(String(n), mx, my + meio);
+    }
+  }
+
+  const rTiro = Math.max(o.cal / 2 * k, 3.5);
+  tiros.forEach((t, i) => {
+    const x = mx + t.x * k, y = my - t.y * k;
+    const eUltimo = i === tiros.length - 1 && !o.semUltimo;
+    if (o.foto) {
+      // Sobre a fotografia desenha-se so o contorno, para se ver o furo verdadeiro por baixo.
+      c.lineWidth = i === o.sel ? 3.5 : 2.2;
+      c.strokeStyle = i === o.sel ? K.ultimo : K.tiro;
+      c.beginPath(); c.arc(x, y, rTiro, 0, TAU); c.stroke();
+      c.fillStyle = c.strokeStyle;
+      c.beginPath(); c.arc(x, y, 1.8, 0, TAU); c.fill();
+      return;
+    }
+    c.beginPath(); c.arc(x, y, rTiro, 0, TAU);
+    c.globalAlpha = eUltimo ? 0.92 : 0.72;
+    c.fillStyle = eUltimo ? K.ultimo : K.tiro;
+    c.fill();
+    c.globalAlpha = 1;
+    c.lineWidth = i === o.sel ? 3 : 1.3;
+    c.strokeStyle = K.borda;
+    c.stroke();
+    if (i === o.sel) {
+      c.lineWidth = 1.5; c.strokeStyle = K.acento;
+      c.beginPath(); c.arc(x, y, rTiro + 4, 0, TAU); c.stroke();
+    }
+    if (rTiro >= 9) {
+      c.fillStyle = K.borda;
+      c.font = "600 " + Math.min(rTiro * 0.95, 13).toFixed(1) + "px 'IBM Plex Mono', ui-monospace, monospace";
+      c.textAlign = "center"; c.textBaseline = "middle";
+      c.fillText(String(i + 1), x, y + 0.5);
+    }
+  });
+
+  if (o.centro && tiros.length >= 2) {
+    const s = estatisticas(tiros);
+    const x = mx + s.cx * k, y = my - s.cy * k;
+    c.strokeStyle = K.acento; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(x - 7, y); c.lineTo(x + 7, y); c.moveTo(x, y - 7); c.lineTo(x, y + 7); c.stroke();
+  }
+
+  if (o.prov) {
+    const x = mx + o.prov.x * k, y = my - o.prov.y * k;
+    c.strokeStyle = K.ultimo; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(0, y); c.lineTo(lado, y); c.moveTo(x, 0); c.lineTo(x, lado); c.stroke();
+    c.lineWidth = 2;
+    c.beginPath(); c.arc(x, y, rTiro, 0, TAU); c.stroke();
+  }
+  return k;
+}
+
+/* ---------- vista do alvo ---------- */
+
+function pintarAlvo() {
+  const def = ALVOS[E.alvo];
+  const vistos = tirosVistos();
+  kAtual = desenhar(cv, def, vistos, {
+    zoom: E.zoom, sel: E.sel >= 0 ? vistos.indexOf(E.tiros[E.sel]) : -1, prov: E.prov, foto: E.foto, fotoT: E.fotoT,
+    cal: E.calibre, numeros: true, centro: true
+  });
+  const n = vistos.length;
+  if (E.prov) {
+    $("rot-ultimo").textContent = "A marcar";
+    $("ultimo").textContent = nf1.format(E.prov.v);
+  } else {
+    $("rot-ultimo").textContent = "Último";
+    $("ultimo").textContent = n ? valorTiro(def, vistos[n - 1].v) : "–";
+  }
+}
+
+/* ---------- modo de prova ---------- */
+
+/* CCART, artigo 9.o: 40 tiros de prova de pe numa hora, com ensaio ilimitado.
+   Os tiros agrupam-se por alvo de papel, pela ordem em que os alvos foram usados:
+   e isso que da as series de 10, mesmo quando os furos se leem por fotografia. */
+function provaNova() { return { fase: "espera", inicio: 0, fim: 0, cartoes: [] }; }
+function emProva() { return E.modo === "prova"; }
+function tirosVistos() { return emProva() ? E.tiros.filter((t) => t.c === E.cartao) : E.tiros; }
+function tirosDeProva() { return E.tiros.filter((t) => !t.e); }
+function cartaoAtual() { return E.prova.cartoes[E.cartao] || { e: 0 }; }
+function bloqueioProva() {
+  const def = ALVOS[E.alvo];
+  if (E.prova.fase === "espera") return "Começa a prova para marcar tiros.";
+  if (!cartaoAtual().e && tirosDeProva().length >= def.prova) return "Já tens os " + def.prova + " tiros de prova.";
+  return "";
+}
+function inserirNoCartao(t) {
+  let pos = E.tiros.length;
+  for (let k = 0; k < E.tiros.length; k++) if (E.tiros[k].c > t.c) { pos = k; break; }
+  E.tiros.splice(pos, 0, t);
+}
+function largarFoto() { E.sel = -1; E.foto = null; E.detetados = null; E.moverFoto = false; }
+function cartaoNovo(ensaio) {
+  const ult = E.prova.cartoes.length - 1;
+  const vazio = ult >= 0 && !E.tiros.some((t) => t.c === ult);
+  if (vazio) E.prova.cartoes[ult] = { e: ensaio ? 1 : 0 };
+  else E.prova.cartoes.push({ e: ensaio ? 1 : 0 });
+  E.cartao = E.prova.cartoes.length - 1;
+  largarFoto();
+}
+function comecarProva(comRelogio) {
+  E.prova = { fase: "ensaio", inicio: comRelogio ? Date.now() : 0, fim: 0, cartoes: [{ e: 1 }] };
+  E.cartao = 0; E.tiros = [];
+  largarFoto();
+  if (comRelogio) manterEcra(true);
+  guardarRascunho(); pintar();
+}
+function anularProva() {
+  E.prova = provaNova(); E.cartao = 0; E.tiros = [];
+  largarFoto();
+  manterEcra(false);
+  guardarRascunho();
+}
+
+function mmss(seg) {
+  const s = Math.max(0, Math.round(seg));
+  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
+function relogioACorrer() { return emProva() && E.prova.fase !== "espera" && E.prova.inicio > 0 && !E.prova.fim; }
+function atualizarRelogio() {
+  const def = ALVOS[E.alvo], r = $("relogio"), rot = $("relogio-rot"), p = E.prova;
+  r.classList.remove("pouco", "esgotado");
+  if (!emProva() || !def.minutos) return;
+  if (p.fase === "espera") { rot.textContent = "Tempo"; r.textContent = mmss(def.minutos * 60); return; }
+  if (!p.inicio) { rot.textContent = "Relógio"; r.textContent = "–"; return; }
+  if (p.fim) { rot.textContent = "Duração"; r.textContent = mmss((p.fim - p.inicio) / 1000); return; }
+  const resta = def.minutos * 60 - (Date.now() - p.inicio) / 1000;
+  rot.textContent = resta > 0 ? "Falta" : "Tempo esgotado";
+  r.textContent = mmss(resta);
+  if (resta <= 0) r.classList.add("esgotado");
+  else if (resta <= 600) r.classList.add("pouco");
+}
+let tique = null;
+function gerirTique() {
+  if (relogioACorrer()) { if (!tique) tique = setInterval(atualizarRelogio, 1000); }
+  else if (tique) { clearInterval(tique); tique = null; }
+  atualizarRelogio();
+}
+
+// Mantem o ecra aceso enquanto o relogio corre; o telemovel pode recusar, e nao faz mal.
+let tranca = null;
+async function manterEcra(ligar) {
+  try {
+    if (ligar) { if (!tranca && navigator.wakeLock) tranca = await navigator.wakeLock.request("screen"); }
+    else if (tranca) { const t = tranca; tranca = null; await t.release(); }
+  } catch (e) { tranca = null; }
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && relogioACorrer()) { tranca = null; manterEcra(true); }
+});
+
+function pintarProva() {
+  const def = ALVOS[E.alvo];
+  const disponivel = !!(def.prova && def.minutos);
+  if (!disponivel && emProva()) E.modo = "treino";
+  $("modo").hidden = !disponivel;
+  document.querySelectorAll("#modo button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.modo === E.modo)));
+  const prova = emProva();
+  $("prova").hidden = !prova;
+  if (!prova) { gerirTique(); return; }
+  const p = E.prova, np = tirosDeProva().length, ne = E.tiros.length - np;
+  const espera = p.fase === "espera";
+  let estado;
+  if (espera) estado = def.prova + " tiros de pé em " + def.minutos + " minutos, com ensaio à vontade. O relógio arranca quando tocares em Começar.";
+  else if (p.fase === "ensaio") estado = "Ensaio: " + ne + (ne === 1 ? " tiro" : " tiros") + ". Não contam para a prova.";
+  else if (np > def.prova) estado = "Tens " + np + " tiros de prova. Apaga os que estão a mais.";
+  else if (np === def.prova) estado = "Prova completa: " + def.prova + " tiros.";
+  else estado = "Tiro " + (np + 1) + " de " + def.prova + ", série " + (Math.floor(np / 10) + 1) + ".";
+  $("prova-estado").textContent = estado;
+  $("prova-comecar").hidden = !espera;
+  $("prova-semrelogio").hidden = !espera;
+  $("prova-fase").hidden = p.fase !== "ensaio";
+  $("prova-cartao").hidden = espera;
+  $("prova-parar").hidden = espera || !p.inicio || !!p.fim;
+  $("prova-anular").hidden = espera;
+  const nc = p.cartoes.length;
+  $("cartoes").hidden = nc < 2;
+  if (nc >= 2) {
+    $("cartao-rot").textContent = "Alvo " + (E.cartao + 1) + " de " + nc + (cartaoAtual().e ? " (ensaio)" : "");
+    $("cartao-ant").disabled = E.cartao <= 0;
+    $("cartao-seg").disabled = E.cartao >= nc - 1;
+  }
+  gerirTique();
+}
+
+/* Nos alvos que pontuam em inteiros (CCART) mostra-se o anel; nos outros, a decima.
+   Enquanto se arrasta um tiro mostra-se sempre a decima, que diz o quao perto esta da linha. */
+function inteiroDe(v) { return Math.floor(v + 1e-9); }
+function valorTiro(def, v) { return def.inteiros ? String(inteiroDe(v)) : nf1.format(v); }
+function valorSerie(s) { const d = ALVOS[s.alvo]; return d && d.inteiros ? (s.inteiro || 0) : (s.total || 0); }
+function textoSerie(s) { const d = ALVOS[s.alvo]; return d && d.inteiros ? String(s.inteiro || 0) : nf1.format(s.total || 0); }
+
+function pintar() {
+  pintarProva();
+  pintarAlvo();
+  const regra = ALVOS[E.alvo];
+  const prova = emProva();
+  const contam = prova ? tirosDeProva() : E.tiros;   // os tiros que entram no total
+  const vistos = tirosVistos();                       // os tiros do alvo que esta no ecra
+  const s = estatisticas(contam);
+  const g = prova ? estatisticas(vistos) : s;
+  $("total").textContent = regra.inteiros ? String(s.inteiro) : nf1.format(s.total);
+  let linha;
+  if (prova && E.prova.fase === "espera") {
+    linha = "Escolhe como queres começar a prova.";
+  } else if (!s.n) {
+    linha = prova ? "Ainda sem tiros de prova." : "Toca no alvo para marcar o primeiro impacto.";
+  } else if (regra.inteiros) {
+    linha = (prova ? s.n + " de " + regra.prova + " tiros" : s.n + (s.n === 1 ? " tiro" : " tiros"))
+      + " · média " + nf2.format(s.inteiro / s.n) + " · " + nf1.format(s.total) + " em décimas";
+  } else {
+    linha = s.inteiro + " em inteiros · " + s.n + (s.n === 1 ? " tiro" : " tiros") + " · média " + nf2.format(s.total / s.n);
+  }
+  if (s.n && s.interiores) linha += " · " + s.interiores + (s.interiores === 1 ? " dez interior" : " dezes interiores");
+  $("linha").textContent = linha;
+
+  const fita = $("fita");
+  fita.textContent = "";
+  const fazerChip = (t, numero, classes) => {
+    const idx = E.tiros.indexOf(t);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + classes;
+    b.setAttribute("aria-pressed", String(idx === E.sel));
+    b.setAttribute("aria-label", "Tiro " + numero + ": " + valorTiro(regra, t.v) + (regra.inteiros ? " (" + nf1.format(t.v) + " em décimas)" : ""));
+    const num = document.createElement("small"); num.textContent = String(numero);
+    const val = document.createElement("b"); val.textContent = valorTiro(regra, t.v);
+    b.append(num, val);
+    b.addEventListener("click", () => {
+      E.sel = E.sel === idx ? -1 : idx;
+      // Na prova, tocar num tiro de outro alvo de papel traz esse alvo para o ecra.
+      if (prova && E.sel >= 0 && t.c !== E.cartao) { E.cartao = t.c; E.foto = null; E.detetados = null; E.moverFoto = false; }
+      pintar();
+    });
+    return b;
+  };
+  const fazerGrupo = (lista, titulo, base, classes, comTotal) => {
+    const li = document.createElement("li");
+    const chips = document.createElement("div");
+    chips.className = "chips";
+    let sub = 0;
+    lista.forEach((t, k) => {
+      sub += regra.inteiros ? inteiroDe(t.v) : t.v;
+      const eUltimo = comTotal && base + k === contam.length - 1;
+      chips.append(fazerChip(t, base + k + 1, classes + (eUltimo ? " ultimo" : "")));
+    });
+    const rodape = document.createElement("div");
+    rodape.className = "sub";
+    const rot = document.createElement("span"); rot.textContent = titulo;
+    const tot = document.createElement("b");
+    tot.textContent = comTotal ? (regra.inteiros ? String(sub) : nf1.format(Math.round(sub * 10) / 10)) : lista.length + (lista.length === 1 ? " tiro" : " tiros");
+    rodape.append(rot, tot);
+    li.append(chips, rodape);
+    fita.append(li);
+  };
+  if (prova) {
+    const ensaio = E.tiros.filter((t) => t.e);
+    if (ensaio.length) fazerGrupo(ensaio, "Ensaio", 0, " ensaio", false);
+  }
+  for (let k = 0; k < contam.length; k += 10) fazerGrupo(contam.slice(k, k + 10), "Série " + (k / 10 + 1), k, "", true);
+
+  const leitura = $("leitura");
+  leitura.hidden = g.n < 2;
+  if (g.n >= 2) {
+    $("g-disp").textContent = nf1.format(g.disp) + " mm, de centro a centro";
+    const ax = Math.abs(g.cx), ay = Math.abs(g.cy);
+    const partes = [];
+    if (ax >= 0.05) partes.push(nf1.format(ax) + " mm " + (g.cx > 0 ? "à direita" : "à esquerda"));
+    if (ay >= 0.05) partes.push(nf1.format(ay) + " mm " + (g.cy > 0 ? "acima" : "abaixo"));
+    $("g-centro").textContent = partes.length ? partes.join(" e ") : "no centro do alvo";
+    const clique = parseFloat(String(E.clique).replace(",", "."));
+    const temClique = clique > 0;
+    const corr = [];
+    if (ax >= 0.05) corr.push((temClique ? Math.round(ax / clique) + " cliques" : nf1.format(ax) + " mm") + " para a " + (g.cx > 0 ? "esquerda" : "direita"));
+    if (ay >= 0.05) corr.push((temClique ? Math.round(ay / clique) + " cliques" : nf1.format(ay) + " mm") + " para " + (g.cy > 0 ? "baixo" : "cima"));
+    $("g-corr").textContent = g.n < 3 ? "marca pelo menos três tiros" : (corr.length ? corr.join(" e ") : "nenhuma");
+    $("g-nota").textContent = g.n < 5
+      ? "Com menos de cinco tiros o centro do grupo é pouco fiável. Confirma antes de mexer na mira."
+      : (temClique ? "" : "Indica na ficha quantos milímetros vale um clique para veres a correção em cliques.");
+  }
+
+  $("desfazer").disabled = vistos.length === 0;
+  $("limpar").hidden = prova;
+  $("limpar").disabled = E.tiros.length === 0 && !E.foto;
+  const guardar = $("guardar");
+  guardar.textContent = prova ? "Guardar prova" : "Guardar série";
+  guardar.disabled = prova ? !(s.n > 0 && s.n <= regra.prova) : s.n === 0;
+  $("apagar-sel").hidden = E.sel < 0;
+  document.querySelectorAll(".zoom button").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.zoom) === E.zoom)));
+  $("foto-ctl").hidden = !E.foto;
+  if (E.foto) {
+    const auto = !!E.fotoT.auto;
+    let estado;
+    if (auto && E.detetados && E.detetados.suspeita) {
+      estado = "Os furos da fotografia não têm o tamanho esperado para este alvo e calibre. Confirma na ficha se o alvo escolhido é o da fotografia e toca em Repor furos detetados.";
+    } else if (auto && E.detetados) {
+      estado = "Li o alvo e encontrei " + E.detetados.n + (E.detetados.n === 1 ? " furo." : " furos.");
+      if (E.detetados.duvida) estado += " Há uma mancha maior do que os tiros que marquei: pode faltar um.";
+      else if (E.detetados.juntos) estado += " Há furos sobrepostos: confirma a contagem.";
+      estado += " Toca num valor da fita para apagar um tiro, ou no alvo para acrescentar.";
+    } else {
+      estado = "Alinha os anéis desenhados com os do alvo fotografado. Depois toca em cada furo.";
+    }
+    $("foto-estado").textContent = estado;
+    $("foto-manual-ctl").hidden = auto;
+    $("foto-manual").hidden = !auto;
+    $("foto-detetar").textContent = auto ? "Repor furos detetados" : "Tentar ler de novo";
+  }
+  $("aviso-foto").hidden = !(E.foto && E.moverFoto);
+  $("foto-mover").setAttribute("aria-pressed", String(E.moverFoto));
+  const def = ALVOS[E.alvo];
+  $("ficha-resumo").textContent = def.curto + (E.arma ? " · " + E.arma : "");
+}
+
+function recalcularTiros() {
+  const def = ALVOS[E.alvo];
+  E.tiros = E.tiros.map((t) => {
+    const p = pontuar(def, Math.hypot(t.x, t.y), E.calibre);
+    return Object.assign({}, t, { v: p.v, i: p.interior ? 1 : 0 });
+  });
+}
+
+/* marcar impactos */
+let arrasto = null;
+function posicao(ev) {
+  const cx = cv.getBoundingClientRect();
+  const lado = cx.width;
+  let px = ev.clientX - cx.left;
+  let py = ev.clientY - cx.top - (arrasto && arrasto.toque ? 46 : 0);
+  px = Math.min(Math.max(px, 0), lado);
+  py = Math.min(Math.max(py, 0), lado);
+  return { x: (px - lado / 2) / kAtual, y: (lado / 2 - py) / kAtual };
+}
+function provisorio(ev) {
+  const p = posicao(ev);
+  const r = pontuar(ALVOS[E.alvo], Math.hypot(p.x, p.y), E.calibre);
+  E.prov = { x: p.x, y: p.y, v: r.v, i: r.interior ? 1 : 0 };
+  pintarAlvo();
+}
+cv.addEventListener("pointerdown", (ev) => {
+  ev.preventDefault();
+  try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* sem captura */ }
+  if (E.foto && E.moverFoto) {
+    arrasto = { tipo: "foto", x: ev.clientX, y: ev.clientY };
+    return;
+  }
+  if (emProva()) {
+    const motivo = bloqueioProva();
+    if (motivo) { aviso(motivo); return; }
+  }
+  arrasto = { tipo: "tiro", toque: ev.pointerType === "touch" };
+  provisorio(ev);
+});
+cv.addEventListener("pointermove", (ev) => {
+  if (!arrasto) return;
+  ev.preventDefault();
+  if (arrasto.tipo === "foto") {
+    E.fotoT.ox += (ev.clientX - arrasto.x) / kAtual;
+    E.fotoT.oy -= (ev.clientY - arrasto.y) / kAtual;
+    arrasto.x = ev.clientX; arrasto.y = ev.clientY;
+    pintarAlvo();
+    return;
+  }
+  provisorio(ev);
+});
+cv.addEventListener("pointerup", (ev) => {
+  if (!arrasto) return;
+  const tipo = arrasto.tipo;
+  if (tipo === "tiro" && E.prov) {
+    const novo = { x: r2(E.prov.x), y: r2(E.prov.y), v: E.prov.v, i: E.prov.i };
+    if (emProva()) { novo.c = E.cartao; novo.e = cartaoAtual().e ? 1 : 0; inserirNoCartao(novo); }
+    else E.tiros.push(novo);
+    E.sel = -1;
+  }
+  arrasto = null; E.prov = null;
+  guardarRascunho();
+  pintar();
+});
+cv.addEventListener("pointercancel", () => { arrasto = null; E.prov = null; pintar(); });
+
+/* ferramentas */
+document.querySelectorAll(".zoom button").forEach((b) => b.addEventListener("click", () => { E.zoom = Number(b.dataset.zoom); pintar(); }));
+$("desfazer").addEventListener("click", () => {
+  if (emProva()) {
+    // Na prova desfaz-se o ultimo tiro do alvo de papel que esta no ecra.
+    for (let k = E.tiros.length - 1; k >= 0; k--) if (E.tiros[k].c === E.cartao) { E.tiros.splice(k, 1); break; }
+  } else {
+    E.tiros.pop();
+  }
+  E.sel = -1; guardarRascunho(); pintar();
+});
+
+/* botoes do modo de prova */
+document.querySelectorAll("#modo button").forEach((b) => b.addEventListener("click", () => {
+  const destino = b.dataset.modo;
+  if (destino === E.modo) return;
+  if (destino === "prova" && E.tiros.length) { aviso("Guarda ou limpa a série de treino antes de começar uma prova."); return; }
+  if (destino === "treino" && E.prova.fase !== "espera") { aviso("Guarda ou anula a prova antes de voltar ao treino."); return; }
+  E.modo = destino;
+  E.prova = provaNova(); E.cartao = 0;
+  largarFoto();
+  guardarRascunho(); pintar();
+}));
+$("prova-comecar").addEventListener("click", () => comecarProva(true));
+$("prova-semrelogio").addEventListener("click", () => comecarProva(false));
+$("prova-fase").addEventListener("click", () => {
+  E.prova.fase = "prova";
+  cartaoNovo(false);
+  guardarRascunho(); pintar();
+  aviso("A partir de agora os tiros contam para a prova.");
+});
+$("prova-cartao").addEventListener("click", () => { cartaoNovo(E.prova.fase === "ensaio"); guardarRascunho(); pintar(); });
+$("prova-parar").addEventListener("click", () => { E.prova.fim = Date.now(); manterEcra(false); guardarRascunho(); pintar(); });
+$("cartao-ant").addEventListener("click", () => { if (E.cartao > 0) { E.cartao--; largarFoto(); pintar(); } });
+$("cartao-seg").addEventListener("click", () => { if (E.cartao < E.prova.cartoes.length - 1) { E.cartao++; largarFoto(); pintar(); } });
+$("apagar-sel").addEventListener("click", () => {
+  if (E.sel >= 0) { E.tiros.splice(E.sel, 1); E.sel = -1; guardarRascunho(); pintar(); }
+});
+
+function doisPassos(botao, confirmar, acao) {
+  const original = botao.textContent;
+  let relogio = null;
+  const repor = () => { botao.dataset.armado = ""; botao.textContent = original; botao.classList.remove("armado"); };
+  botao.addEventListener("click", () => {
+    if (botao.dataset.armado === "1") { clearTimeout(relogio); repor(); acao(); return; }
+    botao.dataset.armado = "1"; botao.textContent = confirmar; botao.classList.add("armado");
+    relogio = setTimeout(repor, 3500);
+  });
+}
+doisPassos($("limpar"), "Confirmar", () => { limparSerie(); pintar(); });
+doisPassos($("prova-anular"), "Confirmar anular", () => { anularProva(); pintar(); });
+function limparSerie() {
+  E.tiros = []; E.sel = -1; E.notas = ""; $("f-notas").value = "";
+  E.foto = null; E.moverFoto = false; E.detetados = null;
+  guardarRascunho();
+}
+
+/* fotografia do alvo */
+$("btn-foto").addEventListener("click", () => {
+  if (emProva() && E.prova.fase === "espera") { aviso("Começa a prova para ler alvos."); return; }
+  $("foto").click();
+});
+$("foto").addEventListener("change", () => {
+  const ficheiro = $("foto").files && $("foto").files[0];
+  if (!ficheiro) return;
+  const url = URL.createObjectURL(ficheiro);
+  const img = new Image();
+  img.onload = () => {
+    const maior = Math.max(img.naturalWidth, img.naturalHeight);
+    const f = Math.min(1, 1600 / maior);
+    const tela = document.createElement("canvas");
+    tela.width = Math.round(img.naturalWidth * f);
+    tela.height = Math.round(img.naturalHeight * f);
+    tela.getContext("2d").drawImage(img, 0, 0, tela.width, tela.height);
+    URL.revokeObjectURL(url);
+    E.foto = tela;
+    $("foto").value = "";
+    aviso("A ler o alvo…");
+    setTimeout(() => lerFoto(false), 40);
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); aviso("Não foi possível abrir essa imagem."); };
+  img.src = url;
+});
+
+/* Alinhamento manual: o utilizador ajusta o tamanho e a posicao da fotografia.
+   Parte do que o detetor encontrou, se houver. */
+function fotoManual() {
+  const def = ALVOS[E.alvo], t = E.fotoT;
+  if (t && t.auto) {
+    const base = 1 / t.pxPorMm;
+    E.fotoT = { auto: false, base, mult: 1, ox: (E.foto.width / 2 - t.cx) * base, oy: (t.cy - E.foto.height / 2) * base };
+  } else {
+    E.fotoT = { auto: false, ox: 0, oy: 0, mult: 1, base: def.aneis[def.aneis.length - 1] * 1.3 / Math.min(E.foto.width, E.foto.height) };
+  }
+  E.moverFoto = true;
+  $("foto-tam").value = "0";
+}
+
+/* Le o alvo na fotografia: encontra o disco preto, tira dai a escala e o centro,
+   e localiza os furos. Com substituir = true troca os tiros ja marcados. */
+function lerFoto(substituir) {
+  if (!E.foto) return;
+  const def = ALVOS[E.alvo];
+  let res;
+  try {
+    const px = E.foto.getContext("2d").getImageData(0, 0, E.foto.width, E.foto.height);
+    res = window.DetetorAlvo.analisar(px.data, E.foto.width, E.foto.height, def, E.calibre);
+  } catch (e) {
+    res = { ok: false, motivo: "não foi possível analisar a imagem" };
+  }
+  if (!res.ok) {
+    E.fotoT = { auto: false };
+    fotoManual();
+    E.detetados = null;
+    pintar();
+    aviso("Não li o alvo sozinho: " + res.motivo + ". Alinha a fotografia à mão.");
+    return;
+  }
+  E.fotoT = { auto: true, m: res.m, cx: res.centro.x, cy: res.centro.y, Rmm: def.preto / 2, pxPorMm: res.pxPorMm };
+  E.moverFoto = false;
+  const achados = res.furos.map((f) => {
+    const p = pontuar(def, Math.hypot(f.x, f.y), E.calibre);
+    return { x: r2(f.x), y: r2(f.y), v: p.v, i: p.interior ? 1 : 0 };
+  }).sort((a, b) => b.v - a.v);
+  E.detetados = { n: achados.length, juntos: res.furos.some((f) => f.junto), duvida: res.furos.some((f) => f.duvida), suspeita: !!res.escalaSuspeita };
+  if (res.escalaSuspeita) {
+    // A escala vem do disco preto do alvo escolhido. Se os furos nao batem com o
+    // calibre, o alvo da ficha nao e o da fotografia: nao se marcam tiros errados.
+    pintar();
+    aviso("Os furos não têm o tamanho esperado. Confirma o alvo na ficha.");
+    return;
+  }
+  let usar;
+  if (emProva()) {
+    // Na prova a fotografia e de um alvo de papel: troca so os tiros desse alvo.
+    usar = substituir || !tirosVistos().length;
+    if (usar) {
+      const ensaio = cartaoAtual().e ? 1 : 0;
+      achados.forEach((a) => { a.c = E.cartao; a.e = ensaio; });
+      E.tiros = E.tiros.filter((t) => t.c !== E.cartao).concat(achados).sort((a, b) => a.c - b.c);
+      E.sel = -1; guardarRascunho();
+    }
+  } else {
+    usar = substituir || !E.tiros.length;
+    if (usar) { E.tiros = achados; E.sel = -1; guardarRascunho(); }
+  }
+  pintar();
+  if (!achados.length) aviso("Li o alvo, mas não encontrei furos. Toca no alvo para os marcar.");
+  else if (usar) aviso(achados.length + (achados.length === 1 ? " furo encontrado." : " furos encontrados.") + " Confirma no alvo.");
+  else aviso("Fotografia alinhada. Os tiros que já tinhas ficaram como estavam.");
+}
+
+$("foto-tam").addEventListener("input", () => { E.fotoT.mult = Math.pow(2, Number($("foto-tam").value) / 40); pintarAlvo(); });
+$("foto-mover").addEventListener("click", () => { E.moverFoto = !E.moverFoto; pintar(); });
+$("foto-tirar").addEventListener("click", () => { E.foto = null; E.moverFoto = false; E.detetados = null; pintar(); });
+$("foto-detetar").addEventListener("click", () => lerFoto(true));
+$("foto-manual").addEventListener("click", () => { if (E.foto) { fotoManual(); pintar(); } });
+
+/* ficha */
+function preencherSelects() {
+  const sa = $("f-alvo");
+  for (const id of Object.keys(ALVOS)) {
+    const o = document.createElement("option"); o.value = id; o.textContent = ALVOS[id].nome; sa.append(o);
+  }
+  const sc = $("f-cal");
+  for (const c of CALIBRES) {
+    const o = document.createElement("option"); o.value = String(c.v); o.textContent = c.n; sc.append(o);
+  }
+}
+function fichaParaEcra() {
+  $("f-alvo").value = E.alvo;
+  $("f-cal").value = String(E.calibre);
+  $("f-arma").value = E.arma;
+  $("f-mun").value = E.municao;
+  $("f-local").value = E.local;
+  $("f-clique").value = E.clique;
+  $("f-notas").value = E.notas;
+}
+$("f-alvo").addEventListener("change", () => {
+  if (emProva() && E.prova.fase !== "espera") {
+    $("f-alvo").value = E.alvo;
+    aviso("Não dá para mudar de alvo a meio da prova.");
+    return;
+  }
+  E.alvo = $("f-alvo").value;
+  E.calibre = ALVOS[E.alvo].calibre;
+  $("f-cal").value = String(E.calibre);
+  E.zoom = 1; E.foto = null; E.moverFoto = false; E.detetados = null;
+  recalcularTiros(); guardarRascunho(); guardarConfig(); pintar();
+});
+$("f-cal").addEventListener("change", () => { E.calibre = Number($("f-cal").value); recalcularTiros(); guardarRascunho(); guardarConfig(); pintar(); });
+[["f-arma", "arma"], ["f-mun", "municao"], ["f-local", "local"], ["f-clique", "clique"], ["f-notas", "notas"]].forEach(([id, campo]) => {
+  $(id).addEventListener("change", () => {
+    E[campo] = $(id).value.trim();
+    guardarRascunho();
+    if (campo !== "notas") guardarConfig();
+    pintar();
+  });
+});
+
+/* ---------- armazenamento ---------- */
+
+function lerLocal(chave, omissao) {
+  try { const t = localStorage.getItem(chave); return t ? JSON.parse(t) : omissao; } catch (e) { return omissao; }
+}
+function gravarLocal(chave, valor) {
+  try { localStorage.setItem(chave, JSON.stringify(valor)); return true; } catch (e) { return false; }
+}
+function guardarRascunho() {
+  gravarLocal(CHAVE.rascunho, estadoParaGuardar());
+}
+function estadoParaGuardar() {
+  return {
+    alvo: E.alvo, calibre: E.calibre, tiros: E.tiros, arma: E.arma, municao: E.municao,
+    local: E.local, notas: E.notas, clique: E.clique,
+    modo: E.modo, prova: E.prova, cartao: E.cartao
+  };
+}
+function aplicarDados(d) {
+  if (!d || typeof d !== "object") return;
+  if (d.alvo && ALVOS[d.alvo]) E.alvo = d.alvo;
+  if (Number(d.calibre) > 0) E.calibre = Number(d.calibre);
+  for (const c of ["arma", "municao", "local", "notas", "clique"]) if (typeof d[c] === "string") E[c] = d[c];
+  // Uma prova a meio sobrevive a um recarregamento: o relogio conta pela hora de inicio.
+  if (d.modo === "prova" && d.prova && typeof d.prova === "object" && ALVOS[E.alvo].prova) {
+    const p = d.prova;
+    E.modo = "prova";
+    E.prova = {
+      fase: ["espera", "ensaio", "prova"].includes(p.fase) ? p.fase : "espera",
+      inicio: Number(p.inicio) || 0, fim: Number(p.fim) || 0,
+      cartoes: Array.isArray(p.cartoes) ? p.cartoes.map((c) => ({ e: c && c.e ? 1 : 0 })) : []
+    };
+    E.cartao = Math.max(0, Math.min(Number(d.cartao) || 0, E.prova.cartoes.length - 1));
+  } else if (d.modo === "treino") {
+    E.modo = "treino";
+  }
+  if (Array.isArray(d.tiros)) {
+    E.tiros = d.tiros.filter((t) => t && isFinite(t.x) && isFinite(t.y)).map((t) => {
+      const novo = { x: Number(t.x), y: Number(t.y), v: 0, i: 0 };
+      if (E.modo === "prova") { novo.c = Number(t.c) || 0; novo.e = t.e ? 1 : 0; }
+      return novo;
+    });
+    recalcularTiros();
+  }
+}
+
+let configRelogio = null, configAEscrever = false, configSuja = false;
+function guardarConfig() {
+  if (Loja.modo !== "nuvem") return;
+  configSuja = true;
+  clearTimeout(configRelogio);
+  configRelogio = setTimeout(escreverConfig, 900);
+}
+async function escreverConfig() {
+  if (configAEscrever || !configSuja) return;
+  configAEscrever = true; configSuja = false;
+  try {
+    await Loja.col.doc("config").set({ tipo: "config", alvo: E.alvo, calibre: E.calibre, arma: E.arma, municao: E.municao, local: E.local, clique: E.clique });
+  } catch (e) { /* a ficha continua valida neste ecra */ }
+  configAEscrever = false;
+  if (configSuja) escreverConfig();
+}
+
+async function escreverSerie(id, corpo) {
+  try {
+    await Loja.col.doc(id).set(corpo);
+  } catch (e) {
+    if (!e || e.code !== "unavailable") throw e;
+    await new Promise((r) => setTimeout(r, 1200 + Math.random() * 900));
+    await Loja.col.doc(id).set(corpo);
+  }
+}
+async function enviarPendentes() {
+  if (Loja.aEnviar || Loja.modo !== "nuvem" || !pendentes.length) return;
+  Loja.aEnviar = true;
+  const fila = pendentes.slice();
+  for (const p of fila) {
+    try {
+      await escreverSerie(p.id, p.corpo);
+      pendentes = pendentes.filter((x) => x.id !== p.id);
+      gravarLocal(CHAVE.pendentes, pendentes);
+    } catch (e) { break; }
+  }
+  Loja.aEnviar = false;
+  pintarCaderno();
+}
+
+async function guardarSerie() {
+  const prova = emProva(), def = ALVOS[E.alvo];
+  const contam = prova ? tirosDeProva() : E.tiros;
+  const s = estatisticas(contam);
+  if (!s.n) return;
+  const corpo = {
+    tipo: "serie", criado: new Date().toISOString(), alvo: E.alvo, calibre: E.calibre,
+    arma: E.arma, municao: E.municao, local: E.local, notas: E.notas,
+    tiros: contam.map((t) => ({ x: t.x, y: t.y, v: t.v, i: t.i })),
+    n: s.n, total: s.total, inteiro: s.inteiro, interiores: s.interiores,
+    grupo: r2(s.disp), cx: r2(s.cx), cy: r2(s.cy)
+  };
+  if (prova) {
+    // Uma prova guarda tambem o ensaio, o alvo de papel de cada tiro, as series de 10 e a duracao.
+    corpo.prova = 1;
+    corpo.tiros = contam.map((t) => ({ x: t.x, y: t.y, v: t.v, i: t.i, c: t.c }));
+    corpo.ensaio = E.tiros.filter((t) => t.e).map((t) => ({ x: t.x, y: t.y, v: t.v, i: t.i, c: t.c }));
+    corpo.series = [];
+    for (let k = 0; k < contam.length; k += 10) {
+      const soma = contam.slice(k, k + 10).reduce((a, t) => a + (def.inteiros ? inteiroDe(t.v) : t.v), 0);
+      corpo.series.push(Math.round(soma * 10) / 10);
+    }
+    corpo.duracao = E.prova.inicio ? Math.round(((E.prova.fim || Date.now()) - E.prova.inicio) / 1000) : 0;
+  }
+  const nome = prova ? "Prova" : "Série";
+  const id = "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const botao = $("guardar");
+  botao.disabled = true;
+  if (Loja.modo === "nuvem") {
+    try {
+      await escreverSerie(id, corpo);
+      aviso(nome + " guardada no caderno.");
+    } catch (e) {
+      pendentes.push({ id, corpo });
+      gravarLocal(CHAVE.pendentes, pendentes);
+      aviso("Sem ligação. Fica neste telefone até ser enviada.");
+    }
+  } else {
+    series.unshift(Object.assign({ id }, corpo));
+    if (!gravarLocal(CHAVE.series, series)) aviso("Este dispositivo não deixou guardar.");
+    else aviso(nome + " guardada neste dispositivo.");
+  }
+  if (prova) { E.notas = ""; $("f-notas").value = ""; anularProva(); }
+  else limparSerie();
+  pintar();
+  pintarCaderno();
+}
+$("guardar").addEventListener("click", guardarSerie);
+
+async function apagarSerie(id) {
+  if (pendentes.some((p) => p.id === id)) {
+    pendentes = pendentes.filter((p) => p.id !== id);
+    gravarLocal(CHAVE.pendentes, pendentes);
+  } else if (Loja.modo === "nuvem") {
+    try { await Loja.col.doc(id).delete(); } catch (e) { aviso("Não foi possível apagar. Tenta com ligação."); return; }
+  } else {
+    series = series.filter((x) => x.id !== id);
+    gravarLocal(CHAVE.series, series);
+  }
+  aviso("Série apagada.");
+  pintarCaderno();
+}
+
+async function abrirLoja() {
+  pendentes = lerLocal(CHAVE.pendentes, []);
+  if (!Array.isArray(pendentes)) pendentes = [];
+  let db = null, user = null, uid = null;
+  try {
+    if (window.claude && typeof window.claude.use === "function") {
+      [db, user, Loja.downloads] = await Promise.all([window.claude.use("db"), window.claude.use("user"), window.claude.use("downloads")]);
+    }
+  } catch (e) { db = null; }
+  try { uid = user ? await user.id() : null; } catch (e) { uid = null; }
+
+  if (!db || !uid) {
+    Loja.modo = "local";
+    const guardadas = lerLocal(CHAVE.series, []);
+    series = Array.isArray(guardadas) ? guardadas : [];
+    // Pede ao telemovel para nao apagar estes dados quando precisar de espaco.
+    try { if (AUTONOMA && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) { /* sem suporte */ }
+    Loja.pronto = true;
+    pintarCaderno();
+    return;
+  }
+
+  Loja.modo = "nuvem";
+  Loja.col = db.collection("data/users/" + uid);
+  const limite = setTimeout(() => { if (!Loja.pronto) { Loja.lento = true; pintarCaderno(); } }, 10000);
+  Loja.col.onSnapshot((snap) => {
+    const novas = [];
+    snap.docs.forEach((d) => {
+      const corpo = d.data();
+      if (!corpo) return;
+      if (corpo.tipo === "serie" && Array.isArray(corpo.tiros)) novas.push(Object.assign({ id: d.id }, corpo));
+      else if (d.id === "config" && !Loja.configLida) {
+        Loja.configLida = true;
+        if (!E.tiros.length && !(emProva() && E.prova.fase !== "espera")) {
+          aplicarDados({ alvo: corpo.alvo, calibre: corpo.calibre, arma: corpo.arma, municao: corpo.municao, local: corpo.local, clique: corpo.clique });
+          fichaParaEcra(); pintar();
+        }
+      }
+    });
+    series = novas;
+    if (!snap.metadata.fromCache) { clearTimeout(limite); Loja.lento = false; }
+    Loja.pronto = true;
+    pintarCaderno();
+    enviarPendentes();
+  }, () => {
+    clearTimeout(limite);
+    Loja.pronto = true; Loja.lento = true;
+    pintarCaderno();
+  });
+}
+
+/* ---------- caderno ---------- */
+
+function todasAsSeries() {
+  const lista = pendentes.map((p) => Object.assign({ id: p.id, pendente: true }, p.corpo)).concat(series);
+  lista.sort((a, b) => String(b.criado).localeCompare(String(a.criado)));
+  return lista;
+}
+function quando(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+
+function pintarCaderno() {
+  const todas = todasAsSeries();
+  const presentes = Array.from(new Set(todas.map((s) => s.alvo))).filter((a) => ALVOS[a]);
+  if (E.filtro === null && Loja.pronto && todas.length) E.filtro = presentes.length > 1 && presentes.includes(E.alvo) ? E.alvo : "";
+  const filtro = E.filtro || "";
+  const visiveis = filtro ? todas.filter((s) => s.alvo === filtro) : todas;
+
+  // sugestoes da ficha
+  [["l-arma", "arma"], ["l-mun", "municao"], ["l-local", "local"]].forEach(([id, campo]) => {
+    const dl = $(id); dl.textContent = "";
+    Array.from(new Set(todas.map((s) => s[campo]).filter((v) => typeof v === "string" && v))).slice(0, 12).forEach((v) => {
+      const o = document.createElement("option"); o.value = v; dl.append(o);
+    });
+  });
+
+  const estadoAlvo = $("estado-loja");
+  estadoAlvo.textContent = Loja.modo === "local" && Loja.pronto ? "As séries ficam guardadas só neste dispositivo." : "";
+
+  const filtros = $("filtros");
+  filtros.textContent = "";
+  if (presentes.length > 1) {
+    [["", "Todos"]].concat(presentes.map((a) => [a, ALVOS[a].curto])).forEach(([valor, nome]) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = nome;
+      b.setAttribute("aria-pressed", String(valor === filtro));
+      b.addEventListener("click", () => { E.filtro = valor; pintarCaderno(); });
+      filtros.append(b);
+    });
+  }
+
+  const estado = $("estado-caderno");
+  estado.textContent = "";
+  if (!Loja.pronto) estado.textContent = Loja.lento ? "Ainda não foi possível chegar ao caderno. O que guardares fica neste telefone até haver ligação." : "A abrir o caderno…";
+  else if (Loja.lento) estado.textContent = "Sem ligação ao caderno. A lista pode estar desatualizada.";
+  else if (Loja.modo === "local") estado.textContent = "As séries ficam guardadas só neste dispositivo. Faz uma cópia de segurança de vez em quando.";
+  if (pendentes.length && Loja.modo === "nuvem") {
+    const t = document.createElement("span");
+    t.textContent = (estado.textContent ? " " : "") + pendentes.length + (pendentes.length === 1 ? " série por enviar." : " séries por enviar.");
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "secundario"; b.textContent = "Enviar agora";
+    b.addEventListener("click", enviarPendentes);
+    estado.append(t, b);
+  }
+
+  const resumo = $("resumo");
+  resumo.textContent = "";
+  resumo.hidden = !visiveis.length;
+  if (visiveis.length) {
+    const nTiros = visiveis.reduce((a, s) => a + (s.n || 0), 0);
+    const soma = visiveis.reduce((a, s) => a + valorSerie(s), 0);
+    const medias = visiveis.filter((s) => s.n).map((s) => valorSerie(s) / s.n);
+    [
+      ["Séries", String(visiveis.length)],
+      ["Tiros", String(nTiros)],
+      ["Média por tiro", nTiros ? nf2.format(soma / nTiros) : "–"],
+      ["Melhor série", medias.length ? nf2.format(Math.max.apply(null, medias)) : "–"]
+    ].forEach(([rot, val]) => {
+      const d = document.createElement("div");
+      const r = document.createElement("span"); r.className = "rotulo"; r.textContent = rot;
+      const v = document.createElement("b"); v.textContent = val;
+      d.append(r, v); resumo.append(d);
+    });
+  }
+
+  pintarTendencia(visiveis.filter((s) => s.n).slice().reverse());
+
+  const ul = $("series");
+  ul.textContent = "";
+  if (Loja.pronto && !todas.length) {
+    const li = document.createElement("li");
+    const caixa = document.createElement("div"); caixa.className = "vazio";
+    const p = document.createElement("p");
+    p.textContent = "Ainda não há séries no caderno. Marca os impactos no alvo e toca em Guardar série: cada série fica aqui com o total, a média e o agrupamento.";
+    const a = document.createElement("a"); a.href = "#alvo"; a.className = "secundario"; a.textContent = "Ir para o alvo";
+    a.style.textDecoration = "none"; a.style.display = "inline-flex"; a.style.alignItems = "center";
+    caixa.append(p, a); li.append(caixa); ul.append(li);
+  }
+  visiveis.forEach((s) => ul.append(linhaSerie(s)));
+
+  const podeEntregar = !!Loja.downloads || AUTONOMA;
+  $("exportar").hidden = !(podeEntregar && todas.length);
+  $("copia").hidden = !(podeEntregar && todas.length);
+  $("repor").hidden = !(Loja.modo === "local" && Loja.pronto);
+}
+
+function linhaSerie(s) {
+  const def = ALVOS[s.alvo] || ALVOS.ar10;
+  const li = document.createElement("li");
+  const det = document.createElement("details");
+  const sum = document.createElement("summary");
+  const q = document.createElement("span"); q.className = "s-quando"; q.textContent = quando(s.criado);
+  const tot = document.createElement("span"); tot.className = "s-total"; tot.textContent = textoSerie(s);
+  const eProva = !!s.prova;
+  const seriesTxt = eProva && Array.isArray(s.series) ? s.series.map((v) => (def.inteiros ? String(v) : nf1.format(v))).join(" · ") : "";
+  const tit = document.createElement("span"); tit.className = "s-titulo"; tit.textContent = (eProva ? "Prova " : "") + def.curto + (s.arma ? " · " + s.arma : "");
+  const sub = document.createElement("span"); sub.className = "s-sub";
+  sub.textContent = (s.n || 0) + " tiros · média " + (s.n ? nf2.format(valorSerie(s) / s.n) : "–")
+    + (seriesTxt ? " · séries " + seriesTxt : " · grupo " + nf1.format(s.grupo || 0) + " mm");
+  if (s.pendente) { const pe = document.createElement("span"); pe.className = "s-pendente"; pe.textContent = " · por enviar"; sub.append(pe); }
+  sum.append(q, tot, tit, sub);
+
+  const corpo = document.createElement("div"); corpo.className = "s-corpo";
+  const tela = document.createElement("canvas");
+  tela.setAttribute("aria-label", "Impactos desta série no alvo");
+  const meta = document.createElement("div"); meta.className = "s-meta";
+  const linhas = [];
+  linhas.push((s.inteiro || 0) + " em inteiros, " + nf1.format(s.total || 0) + " em décimas");
+  if (eProva) {
+    if (def.prova && (s.n || 0) < def.prova) linhas.push("Prova incompleta: " + (s.n || 0) + " de " + def.prova + " tiros");
+    if (seriesTxt) linhas.push("Séries: " + seriesTxt);
+    linhas.push("Grupo: " + nf1.format(s.grupo || 0) + " mm");
+    if (Array.isArray(s.ensaio) && s.ensaio.length) linhas.push("Ensaio: " + s.ensaio.length + (s.ensaio.length === 1 ? " tiro" : " tiros"));
+    if (s.duracao) linhas.push("Duração: " + Math.round(s.duracao / 60) + " min");
+  }
+  if (s.municao) linhas.push("Munição: " + s.municao);
+  if (s.local) linhas.push("Carreira: " + s.local);
+  if (s.notas) linhas.push(s.notas);
+  linhas.forEach((t) => { const p = document.createElement("p"); p.textContent = t; meta.append(p); });
+  const apagar = document.createElement("button");
+  apagar.type = "button"; apagar.className = "secundario"; apagar.textContent = eProva ? "Apagar prova" : "Apagar série";
+  doisPassos(apagar, "Confirmar apagar", () => apagarSerie(s.id));
+  meta.append(apagar);
+  corpo.append(tela, meta);
+  det.append(sum, corpo);
+  det.addEventListener("toggle", () => {
+    if (det.open) desenhar(tela, def, s.tiros || [], { zoom: 1, sel: -1, cal: s.calibre || def.calibre, numeros: false, centro: true, semUltimo: true, fotoT: {} });
+  });
+  li.append(det);
+  return li;
+}
+
+function pintarTendencia(cron) {
+  const fig = $("tendencia");
+  const alvo = $("grafico");
+  alvo.textContent = "";
+  fig.hidden = cron.length < 2;
+  if (cron.length < 2) return;
+  const vals = cron.map((s) => valorSerie(s) / s.n);
+  const W = 320, H = 96, mE = 34, mD = 10, mC = 10, mB = 12;
+  let lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+  if (hi - lo < 0.2) { const m = (hi + lo) / 2; lo = m - 0.1; hi = m + 0.1; }
+  const x = (i) => mE + (W - mE - mD) * (i / (vals.length - 1));
+  const y = (v) => mC + (H - mC - mB) * (1 - (v - lo) / (hi - lo));
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (nome, attrs) => { const n = document.createElementNS(NS, nome); for (const a in attrs) n.setAttribute(a, attrs[a]); return n; };
+  const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": "Evolução da média por tiro ao longo das séries" });
+  [hi, lo].forEach((v) => {
+    svg.append(el("line", { class: "g-grelha", x1: mE, x2: W - mD, y1: y(v), y2: y(v) }));
+    const t = el("text", { class: "g-texto", x: mE - 6, y: y(v) + 3, "text-anchor": "end" });
+    t.textContent = nf2.format(v);
+    svg.append(t);
+  });
+  const pts = vals.map((v, i) => x(i).toFixed(1) + "," + y(v).toFixed(1));
+  svg.append(el("polygon", { class: "g-area", points: mE + "," + (H - mB) + " " + pts.join(" ") + " " + (W - mD) + "," + (H - mB) }));
+  svg.append(el("polyline", { class: "g-linha", points: pts.join(" ") }));
+  svg.append(el("circle", { class: "g-ponto", cx: x(vals.length - 1), cy: y(vals[vals.length - 1]), r: 4 }));
+  alvo.append(svg);
+}
+
+/* Entrega um ficheiro a quem usa a app. No claude.ai passa pela capacidade de
+   downloads. Fora dele, no telemovel abre a folha de partilha (Guardar em Ficheiros,
+   Mail) e no computador descarrega. Devolve false se a pessoa desistiu. */
+async function entregar(nome, texto, tipo) {
+  if (Loja.downloads) {
+    try { await Loja.downloads.save({ filename: nome, data: texto }); return true; }
+    catch (e) { if (e && e.code === "declined") return false; throw e; }
+  }
+  const ficheiro = new File([texto], nome, { type: tipo });
+  const tatil = window.matchMedia("(pointer: coarse)").matches;
+  if (tatil && navigator.canShare && navigator.canShare({ files: [ficheiro] })) {
+    try { await navigator.share({ files: [ficheiro], title: nome }); return true; }
+    catch (e) { if (e && e.name === "AbortError") return false; }
+  }
+  const url = URL.createObjectURL(ficheiro);
+  const a = document.createElement("a");
+  a.href = url; a.download = nome;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  return true;
+}
+const hoje = () => new Date().toISOString().slice(0, 10);
+
+/* Copia de seguranca: todas as series num ficheiro JSON, para guardar fora do
+   telemovel ou passar para outro. Repor junta as que ainda nao existem. */
+$("copia").addEventListener("click", async () => {
+  const dados = {
+    app: "caderno109", versao: 1, exportado: new Date().toISOString(),
+    series: todasAsSeries().map((s) => { const c = Object.assign({}, s); delete c.pendente; return c; })
+  };
+  try {
+    if (await entregar("ten-ring-copia-" + hoje() + ".json", JSON.stringify(dados), "application/json")) aviso("Cópia de segurança feita.");
+  } catch (e) { aviso("Não foi possível fazer a cópia aqui."); }
+});
+$("repor").addEventListener("click", () => $("repor-ficheiro").click());
+$("repor-ficheiro").addEventListener("change", async () => {
+  const campo = $("repor-ficheiro");
+  const ficheiro = campo.files && campo.files[0];
+  if (!ficheiro) return;
+  let dados = null;
+  try { dados = JSON.parse(await ficheiro.text()); } catch (e) { dados = null; }
+  campo.value = "";
+  if (!dados || !Array.isArray(dados.series)) { aviso("Esse ficheiro não é uma cópia do caderno."); return; }
+  const tenho = new Set(series.map((s) => s.id));
+  let novas = 0;
+  dados.series.forEach((s) => {
+    if (s && s.tipo === "serie" && Array.isArray(s.tiros) && typeof s.id === "string" && !tenho.has(s.id)) { series.push(s); tenho.add(s.id); novas++; }
+  });
+  if (novas && !gravarLocal(CHAVE.series, series)) { aviso("Este dispositivo não deixou guardar."); return; }
+  pintarCaderno();
+  aviso(novas ? novas + (novas === 1 ? " série reposta." : " séries repostas.") : "Essa cópia não trazia nada de novo.");
+});
+
+$("exportar").addEventListener("click", async () => {
+  const pt = (n) => String(n).replace(".", ",");
+  const limpo = (t) => '"' + String(t || "").replace(/"/g, '""').replace(/[\r\n]+/g, " ") + '"';
+  const linhas = ["data;tipo;alvo;arma;municao;carreira;tiro;x_mm;y_mm;valor_decimas;valor_inteiro;dez_interior"];
+  todasAsSeries().slice().reverse().forEach((s) => {
+    const juntar = (lista, tipo) => (lista || []).forEach((t, i) => {
+      linhas.push([limpo(quando(s.criado)), tipo, limpo((ALVOS[s.alvo] || {}).nome), limpo(s.arma), limpo(s.municao), limpo(s.local), i + 1, pt(t.x), pt(t.y), pt(t.v), inteiroDe(t.v), t.i ? 1 : 0].join(";"));
+    });
+    juntar(s.ensaio, "ensaio");
+    juntar(s.tiros, s.prova ? "prova" : "treino");
+  });
+  try {
+    // O primeiro caracter e a marca de ordem de bytes, para o Excel ler os acentos.
+    if (await entregar("ten-ring-" + hoje() + ".csv", String.fromCharCode(0xFEFF) + linhas.join("\r\n"), "text/csv")) aviso("Ficheiro CSV exportado.");
+  } catch (e) {
+    aviso("Não foi possível exportar aqui.");
+  }
+});
+
+/* ---------- geral ---------- */
+
+let avisoRelogio = null;
+function aviso(texto) {
+  let t = document.querySelector(".toast");
+  if (!t) { t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); document.body.append(t); }
+  t.textContent = texto;
+  clearTimeout(avisoRelogio);
+  avisoRelogio = setTimeout(() => t.remove(), 3200);
+}
+
+function mostrarVista() {
+  const v = location.hash === "#caderno" ? "caderno" : "alvo";
+  E.vista = v;
+  $("vista-alvo").hidden = v !== "alvo";
+  $("vista-caderno").hidden = v !== "caderno";
+  $("aba-alvo").toggleAttribute("aria-current", v === "alvo");
+  $("aba-caderno").toggleAttribute("aria-current", v === "caderno");
+  if (v === "alvo") $("aba-alvo").setAttribute("aria-current", "page"); else $("aba-caderno").setAttribute("aria-current", "page");
+  if (v === "alvo") pintar(); else pintarCaderno();
+}
+window.addEventListener("hashchange", mostrarVista);
+
+if (window.ResizeObserver) new ResizeObserver(() => { if (E.vista === "alvo") pintarAlvo(); }).observe(cv);
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => pintarAlvo());
+new MutationObserver(() => pintarAlvo()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => pintarAlvo());
+
+function arrancar(dados) {
+  preencherSelects();
+  aplicarDados(lerLocal(CHAVE.rascunho, null));
+  aplicarDados(dados);
+  fichaParaEcra();
+  mostrarVista();
+  abrirLoja();
+}
+
+const quente = window.claude && window.claude.hot;
+if (quente && typeof quente.snapshot === "function") {
+  quente.snapshot(estadoParaGuardar);
+}
+if (quente && typeof quente.ready === "function") quente.ready(arrancar);
+else arrancar((quente && quente.data) || {});
+})();
+</script>
+<script>
+// Guarda a app no telemovel para abrir sem rede.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+}
+</script>
+</body>
+</html>
