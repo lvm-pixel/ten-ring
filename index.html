@@ -611,6 +611,7 @@ table.dados { width: 100%; border-collapse: collapse; font-size: 13px; font-vari
     <div class="cartao vivo-ctl" id="vivo-ctl" hidden>
       <div class="vivo-topo"><span class="vivo-luz" id="vivo-luz"></span><p id="vivo-estado"></p></div>
       <p class="nota" id="vivo-nota" hidden></p>
+      <p class="nota" id="vivo-info" hidden></p>
       <div class="campo" id="vivo-lente-caixa" hidden>
         <label for="vivo-lente">Lente da câmara</label>
         <select id="vivo-lente"></select>
@@ -1215,26 +1216,37 @@ function analisar(rgba, W, H, def, calibre) {
   const rFuro = (calibre / 2) * s;                           // raio do furo em pixeis
   if (rFuro < 3) return falha("o alvo esta demasiado pequeno na fotografia");
 
-  /* 4. Mascara de furos dentro do anel 1: zonas claras e pouco coloridas.
-        O papel bege e a impressao sao coloridos ou escuros; o que se ve por
-        tras de um furo e cinzento claro. */
+  /* 4. Mascara de furos dentro do anel 1: zonas claras que perderam a cor do papel.
+        O papel bege tem um tom proprio (falta-lhe azul e algum verde); o que se ve
+        por tras de um furo e claro e tem outra cor qualquer: cinzento, branco ou
+        azulado, conforme o fundo e a luz. Mede-se, em cada ponto, quanto do tom do
+        papel la esta: 1 no papel, perto de 0 num furo. */
   const uMax = (def.aneis[def.aneis.length - 1] / 2) / Rmm;
   const rPx = uMax * el.maior + 2;
   const bx0 = Math.max(0, Math.floor(el.cx - rPx)), bx1 = Math.min(W - 1, Math.ceil(el.cx + rPx));
   const by0 = Math.max(0, Math.floor(el.cy - rPx)), by1 = Math.min(H - 1, Math.ceil(el.cy + rPx));
   const w = bx1 - bx0 + 1, h = by1 - by0 + 1;
 
-  const papL = [], papS = [], preL = [];
+  const papL = [], papS = [], preL = [], tomR = [], tomG = [], tomB = [];
   for (let y = by0; y <= by1; y += 2) for (let x = bx0; x <= bx1; x += 2) {
     const u = normalizado(el, x, y), ru = Math.hypot(u[0], u[1]);
     const i = y * W + x;
-    if (ru > 1.06 && ru < 1.2) { papL.push(L[i]); papS.push(S[i]); }
+    if (ru > 1.06 && ru < 1.2) {
+      papL.push(L[i]); papS.push(S[i]);
+      const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2], mx = Math.max(r, g, b) || 1;
+      tomR.push(1 - r / mx); tomG.push(1 - g / mx); tomB.push(1 - b / mx);
+    }
     else if (ru < 0.9 && L[i] <= Te) preL.push(L[i]);
   }
   const Lp = mediana(papL), Sp = mediana(papS), Lb = mediana(preL);
   const papelColorido = Sp >= 0.18;
   const limiarL = Lb + 0.5 * (Lp - Lb);
-  const limiarS = 0.6 * Sp;
+  // tom do papel: o que falta a cada cor para chegar a mais forte das tres
+  const t0 = mediana(tomR), t1 = mediana(tomG), t2 = mediana(tomB), tt = t0 * t0 + t1 * t1 + t2 * t2 || 1;
+  const tomDoPapel = (i) => {
+    const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2], mx = Math.max(r, g, b) || 1;
+    return ((1 - r / mx) * t0 + (1 - g / mx) * t1 + (1 - b / mx) * t2) / tt;
+  };
 
   const bruto = new Uint8Array(w * h);
   const limiteU = new Uint8Array(w * h);
@@ -1243,7 +1255,7 @@ function analisar(rgba, W, H, def, calibre) {
     if (ru > uMax) continue;
     const i = (y + by0) * W + x + bx0;
     let furo;
-    if (papelColorido) furo = L[i] > limiarL && S[i] < limiarS;
+    if (papelColorido) { if (L[i] > limiarL) { const tom = tomDoPapel(i); furo = tom < 0.6 || tom > 1.7; } else furo = false; }
     else furo = ru < 0.985 && L[i] > limiarL;     // papel branco: so a zona preta
     if (furo) bruto[y * w + x] = 1;
     if (ru > uMax - 2.5 / el.maior) limiteU[y * w + x] = 1;
@@ -1385,8 +1397,8 @@ raiz.DetetorAlvo = { analisar, ajustarElipse, componentes };
 
 /* ---------- base: tabelas, formatos e ajudas para construir a pagina ---------- */
 
-const VERSAO = "2.1";
-const DATA_VERSAO = "25/11/2026";
+const VERSAO = "2.2";
+const DATA_VERSAO = "26/11/2026";
 
 /* Dimensoes oficiais ISSF (Regras Tecnicas Gerais, 6.3.4): diametro de cada anel
    em mm, do 10 para fora. "interior" e o diametro do dez interior; na carabina de
@@ -4542,6 +4554,7 @@ const VIVO_N = 448;        // lado do retalho alinhado, em pixeis
 const VIVO_FOLGA = 1.14;   // margem do recorte da camara a volta do alvo
 const VIVO_ALFA = 0.35;    // peso de cada imagem nova na media
 const VIVO_LIMIAR = 0.1;   // diferenca media (0 = igual, 1 = de preto a papel) para haver candidato
+const VIVO_MIN_SEGUIR = 1.6;   // pixeis da camara por furo abaixo dos quais nem vale a pena seguir o alvo
 
 /* De cor para um so canal: o menor dos tres (vermelho, verde, azul). O cartao dos
    alvos e bege e o que se ve por um furo e cinzento, quase com a mesma claridade:
@@ -4868,6 +4881,12 @@ function criarSeguidor(def, calibre) {
     st.perdido = 0;
     const novo = { cx: mapa.x0 + d.cx * mapa.k, cy: mapa.y0 + d.cy * mapa.k, r: d.r * mapa.k };
     const escala = novo.r / Rmm;                         // pixeis da camara por milimetro
+    if (escala * calibre < VIVO_MIN_SEGUIR) {
+      // Parece o alvo, mas ocupa tao poucos pixeis que nem os furos se distinguem:
+      // nao se segue (ampliado, so se veria uma mancha), mas diz-se o tamanho que tem.
+      largar();
+      return { estado: "sem-alvo", pequeno: escala, candidato: novo, disco: null, escala: 0, novos: [], mudou: false, retalho: null };
+    }
     const limite = Math.max(0.7, 0.12 * escala);         // quanto pode mexer entre duas imagens
     const estavel = !!st.disco
       && Math.hypot(novo.cx - st.disco.cx, novo.cy - st.disco.cy) < limite
@@ -4908,7 +4927,10 @@ function criarSeguidor(def, calibre) {
   function referenciaNova() { st.ref = null; st.acum = null; st.nAcum = 0; st.pend = []; st.absorver = []; st.mudanca = 0; st.assentar = 0; }
   function largar() { referenciaNova(); st.disco = null; st.perdido = 0; st.quietos = 0; st.raios = []; st.forma = null; }
 
-  return { N, S, Rv, raioFuro: rf, passo, recorte, referenciaNova, largar, temAlvo: () => !!st.disco, temReferencia: () => !!st.ref, interno: () => ({ st, dif, retalho }) };
+  /* O zoom da camara mudou: o alvo passou a estar noutro sitio e com outro tamanho. */
+  function reposicionar(d) { largar(); st.disco = d; }
+
+  return { N, S, Rv, raioFuro: rf, passo, recorte, referenciaNova, largar, reposicionar, disco: () => st.disco, temAlvo: () => !!st.disco, temReferencia: () => !!st.ref, interno: () => ({ st, dif, retalho }) };
 }
 
 /* ---------- ao vivo: camara e ecra ---------- */
@@ -4927,7 +4949,7 @@ const VIVO = {
   recorte: null, pincel: null, canal: null, roi: null,
   seguidor: null, quadro: { w: 0, h: 0 }, procura: { cx: 0, cy: 0, z: 1 },
   retalho: null, pincelRetalho: null, imagem: null,
-  relogio: null, escala: 0, lentes: [], lente: "", zoom: null, pintado: "", pedido: 0
+  relogio: null, escala: 0, pequeno: 0, lentes: [], lente: "", zoom: null, zoomFeito: false, aZoom: false, margem: 0, pintado: "", pedido: 0
 };
 
 function vivoLigado() { return VIVO.ligado; }
@@ -4962,6 +4984,49 @@ function vivoPrepararTelas() {
   VIVO.imagem = VIVO.pincelRetalho.createImageData(VIVO_N, VIVO_N);
 }
 
+/* O Safari nem sempre entrega a resolucao que se pede a primeira (com o telemovel ao
+   alto, largura e altura trocam). Sobe-se por degraus, nas duas orientacoes, e fica-se
+   com a maior que a camara aceitar. */
+async function vivoMelhorarResolucao(pista) {
+  if (!pista || !pista.applyConstraints || !pista.getSettings) return;
+  const lado = () => { try { const s = pista.getSettings(); return Math.max(s.width || 0, s.height || 0); } catch (e) { return 0; } };
+  let melhor = lado(), comQue = null;
+  const tentar = async (w, h) => {
+    try { await pista.applyConstraints({ width: { ideal: w }, height: { ideal: h } }); } catch (e) { return; }
+    const agora = lado();
+    if (agora > melhor) { melhor = agora; comQue = [w, h]; }
+  };
+  let cap = {};
+  try { cap = pista.getCapabilities ? pista.getCapabilities() : {}; } catch (e) { cap = {}; }
+  const degraus = [[3840, 2160], [1920, 1080]];
+  if (cap.width && cap.height && cap.width.max > 0 && cap.height.max > 0) degraus.unshift([Math.max(cap.width.max, cap.height.max), Math.min(cap.width.max, cap.height.max)]);
+  for (const [comprido, curto] of degraus) {
+    if (melhor >= comprido * 0.95) break;
+    await tentar(comprido, curto);
+    if (melhor >= comprido * 0.95) break;
+    await tentar(curto, comprido);
+  }
+  if (comQue && lado() < melhor) { try { await pista.applyConstraints({ width: { ideal: comQue[0] }, height: { ideal: comQue[1] } }); } catch (e) { /* fica a que estiver */ } }
+}
+
+/* O zoom da camara amplia a partir do meio da imagem. Num sensor com mais pixeis do
+   que o video, ampliar da detalhe verdadeiro: e a maneira de chegar a resolucao toda
+   da teleobjetiva quando o Safari so entrega video de 1080 linhas. */
+async function vivoAplicarZoom(valor) {
+  const z = VIVO.zoom;
+  if (!z || !VIVO.pista) return;
+  const novo = Math.max(z.min, Math.min(z.max, valor)), f = novo / z.valor;
+  if (!(Math.abs(f - 1) > 0.01)) return;
+  try { await VIVO.pista.applyConstraints({ advanced: [{ zoom: novo }] }); } catch (e) { return; }
+  z.valor = novo;
+  const meioX = VIVO.quadro.w / 2, meioY = VIVO.quadro.h / 2;
+  VIVO.procura.cx = meioX + f * (VIVO.procura.cx - meioX);
+  VIVO.procura.cy = meioY + f * (VIVO.procura.cy - meioY);
+  const d = VIVO.seguidor && VIVO.seguidor.disco();
+  if (d && meioX) VIVO.seguidor.reposicionar({ cx: meioX + f * (d.cx - meioX), cy: meioY + f * (d.cy - meioY), r: d.r * f });
+  VIVO.pintado = "";
+}
+
 async function ligarVivo(idLente) {
   if (VIVO.aLigar) return;
   VIVO.erro = "";
@@ -4976,7 +5041,9 @@ async function ligarVivo(idLente) {
   pintar();
   let stream = null;
   try {
-    const opcoes = { width: { ideal: 3840 }, height: { ideal: 2160 } };
+    // com o telemovel ao alto a imagem vem ao alto: pede-se a resolucao maxima nessa orientacao
+    const aoAlto = window.innerHeight > window.innerWidth;
+    const opcoes = aoAlto ? { width: { ideal: 2160 }, height: { ideal: 3840 } } : { width: { ideal: 3840 }, height: { ideal: 2160 } };
     if (idLente) opcoes.deviceId = { exact: idLente }; else opcoes.facingMode = { ideal: "environment" };
     stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: opcoes });
   } catch (e) {
@@ -4993,6 +5060,8 @@ async function ligarVivo(idLente) {
   v.srcObject = VIVO.stream;
   try { await v.play(); } catch (e) { /* arranca no primeiro toque */ }
   VIVO.pista = VIVO.stream.getVideoTracks()[0];
+  await vivoMelhorarResolucao(VIVO.pista);
+  if (pedido !== VIVO.pedido) return;
   let cap = {}, def = {};
   try { cap = VIVO.pista.getCapabilities ? VIVO.pista.getCapabilities() : {}; def = VIVO.pista.getSettings ? VIVO.pista.getSettings() : {}; } catch (e) { /* sem estas funcoes */ }
   VIVO.zoom = cap.zoom && cap.zoom.max > cap.zoom.min ? { min: cap.zoom.min, max: cap.zoom.max, passo: cap.zoom.step || 0.1, valor: def.zoom || cap.zoom.min } : null;
@@ -5010,7 +5079,7 @@ async function ligarVivo(idLente) {
   vivoPrepararTelas();
   VIVO.seguidor = criarSeguidor(ALVOS[E.alvo], E.calibre);
   VIVO.quadro = { w: 0, h: 0 };
-  VIVO.ligado = true; VIVO.fase = "procura"; VIVO.escala = 0;
+  VIVO.ligado = true; VIVO.fase = "procura"; VIVO.escala = 0; VIVO.pequeno = 0; VIVO.zoomFeito = false; VIVO.margem = 0;
   E.foto = null; E.detetados = null; E.moverFoto = false;
   manterEcra(true);
   clearInterval(VIVO.relogio);
@@ -5086,8 +5155,31 @@ function tiqueVivo() {
   vivoCanal(dados, VIVO_R * VIVO_R, VIVO.canal);
   const res = seg.passo(VIVO.canal, VIVO_R, { x0: roi.x, y0: roi.y, k: roi.lado / VIVO_R });
   VIVO.escala = res.escala || 0;
+  VIVO.pequeno = res.pequeno || 0;
   if (res.estado === "sem-alvo") VIVO.fase = seg.temAlvo() ? "perdido" : "procura";
   else VIVO.fase = res.estado;
+  if (VIVO.fase === "procura") VIVO.zoomFeito = false;
+  // O alvo ve-se mas e pequeno demais, e a camara tem zoom: aproxima-se sozinha, ate onde
+  // o alvo continuar dentro da imagem.
+  if (res.pequeno && res.candidato && VIVO.zoom && !VIVO.aZoom) {
+    const alvo = res.candidato, meio = seg.Rv * res.pequeno * VIVO_FOLGA;
+    VIVO.margem = Math.min((FW / 2) / (Math.abs(alvo.cx - FW / 2) + meio), (FH / 2) / (Math.abs(alvo.cy - FH / 2) + meio));
+    const f = Math.min(VIVO.zoom.max / VIVO.zoom.valor, VIVO.margem * 0.92);
+    if (f >= 1.2) {
+      VIVO.aZoom = true;
+      vivoAplicarZoom(VIVO.zoom.valor * f).then(() => { VIVO.aZoom = false; }, () => { VIVO.aZoom = false; });
+      return;
+    }
+  }
+  // Acabado de encontrar o alvo: aproxima-se com o zoom da camara ate ele encher a imagem,
+  // sem o deixar sair pelos lados. Faz-se uma vez, antes de fixar a referencia.
+  if (VIVO.fase === "a-preparar" && VIVO.zoom && !VIVO.zoomFeito && res.disco) {
+    VIVO.zoomFeito = true;
+    const meio = seg.Rv * res.escala * VIVO_FOLGA;
+    VIVO.margem = Math.min((FW / 2) / (Math.abs(res.disco.cx - FW / 2) + meio), (FH / 2) / (Math.abs(res.disco.cy - FH / 2) + meio));
+    const f = Math.min(VIVO.zoom.max / VIVO.zoom.valor, VIVO.margem * 0.92);
+    if (f >= 1.2) { vivoAplicarZoom(VIVO.zoom.valor * f); return; }
+  }
 
   let mudouSerie = false;
   if (res.novos.length && vivoPodeMarcar()) {
@@ -5139,7 +5231,9 @@ function pintarVivo() {
   const visivel = VIVO.ligado || VIVO.aLigar || !!VIVO.erro;
   const pf = vivoPixeisPorFuro(), segue = VIVO.ligado && VIVO.fase !== "procura";
   // so mexe na pagina quando alguma coisa do painel muda (isto corre varias vezes por segundo)
-  const chave = [visivel, VIVO.fase, VIVO.erro, VIVO.aLigar, segue ? Math.round(pf * 2) : 0, VIVO.lentes.length, VIVO.lente, VIVO.procura.z, !!VIVO.zoom].join("|");
+  const pequeno = VIVO.pequeno * E.calibre;
+  const chave = [visivel, VIVO.fase, VIVO.erro, VIVO.aLigar, segue ? Math.round(pf * 2) : 0, Math.round(pequeno * 5), VIVO.lentes.length, VIVO.lente, VIVO.procura.z,
+    VIVO.zoom ? VIVO.zoom.valor.toFixed(1) : "", VIVO.quadro.w, VIVO.quadro.h].join("|");
   if (chave === VIVO.pintado) return;
   VIVO.pintado = chave;
   $("vivo-ctl").hidden = !visivel;
@@ -5148,6 +5242,12 @@ function pintarVivo() {
   let estado, nota = "";
   if (VIVO.erro) estado = VIVO.erro;
   else if (VIVO.aLigar || VIVO.fase === "a-pedir") estado = "A ligar a câmara…";
+  else if (VIVO.fase === "procura" && pequeno > 0) {
+    estado = "Vejo o alvo, mas muito pequeno: " + nf1.format(pequeno) + " px por furo. São precisos pelo menos " + nf1.format(VIVO_MIN_FURO) + ".";
+    nota = VIVO.zoom && VIVO.zoom.valor < VIVO.zoom.max * 0.98
+      ? "Aponta o telemóvel de modo a o alvo ficar ao centro da imagem: assim a câmara consegue aproximar mais."
+      : "Esta câmara não aproxima mais. Experimenta outra lente, ou põe o telemóvel atrás de um telescópio ou monóculo.";
+  }
   else if (VIVO.fase === "procura") { estado = "Aponta para o alvo e toca nele para aproximar."; nota = "O telemóvel tem de ficar parado: usa um tripé ou um apoio firme."; }
   else if (VIVO.fase === "perdido") estado = "Perdi o alvo de vista. Volta a apontar o telemóvel.";
   else if (VIVO.fase === "a-preparar") estado = "Alvo encontrado. Não mexas no telemóvel enquanto fixo a imagem de referência…";
@@ -5157,7 +5257,16 @@ function pintarVivo() {
   if (segue && pf > 0) {
     nota = nf1.format(pf) + " px por furo: "
       + (pf >= 8 ? "boa resolução." : pf >= VIVO_MIN_FURO ? "resolução suficiente. Confirma os tiros junto às linhas." : "resolução baixa. Escolhe a teleobjetiva, aumenta o zoom ou usa um telescópio.");
+    if (pf < VIVO_MIN_FURO && VIVO.zoom && VIVO.zoom.valor < VIVO.zoom.max * 0.98 && VIVO.margem > 0 && VIVO.margem < 1.3) nota += " Para aproximar mais, centra o alvo na imagem e toca em Procurar outro alvo.";
   }
+  // o que a camara esta mesmo a entregar: serve para perceber porque e que a resolucao chega ou nao
+  const lenteAtual = VIVO.lentes.find((d) => d.deviceId === VIVO.lente);
+  const info = VIVO.ligado && VIVO.quadro.w
+    ? "Câmara: " + (lenteAtual ? lenteAtual.label + " · " : "") + VIVO.quadro.w + " × " + VIVO.quadro.h + " px"
+      + (VIVO.zoom ? " · zoom ×" + nf1.format(VIVO.zoom.valor) + " (até ×" + nf1.format(VIVO.zoom.max) + ")" : " · sem zoom da câmara")
+    : "";
+  $("vivo-info").textContent = info;
+  $("vivo-info").hidden = !info;
   $("vivo-estado").textContent = estado;
   $("vivo-nota").textContent = nota;
   $("vivo-nota").hidden = !nota;
@@ -5188,15 +5297,11 @@ $("vivo-ref").addEventListener("click", () => { if (VIVO.seguidor) { VIVO.seguid
 $("vivo-procurar").addEventListener("click", () => {
   if (!VIVO.seguidor) return;
   VIVO.seguidor.largar();
-  VIVO.fase = "procura"; VIVO.procura.z = 1; E.foto = null;
+  VIVO.fase = "procura"; VIVO.procura.z = 1; VIVO.zoomFeito = false; VIVO.margem = 0; E.foto = null;
   pintar();
 });
 $("vivo-lente").addEventListener("change", () => { const id = $("vivo-lente").value; if (id && id !== VIVO.lente) ligarVivo(id); });
-$("vivo-zoom").addEventListener("input", () => {
-  if (!VIVO.pista || !VIVO.zoom) return;
-  VIVO.zoom.valor = Number($("vivo-zoom").value);
-  try { VIVO.pista.applyConstraints({ advanced: [{ zoom: VIVO.zoom.valor }] }).catch(() => {}); } catch (e) { /* sem zoom */ }
-});
+$("vivo-zoom").addEventListener("change", () => { VIVO.zoomFeito = true; vivoAplicarZoom(Number($("vivo-zoom").value)); });
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible" || !VIVO.ligado) return;
   // Ao voltar a app, o telemovel pode ter parado a camara.
