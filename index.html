@@ -280,14 +280,28 @@ table.dados { width: 100%; border-collapse: collapse; font-size: 13px; font-vari
 /* alvo */
 .alvo-caixa { position: relative; }
 .alvo-tela {
+  position: relative; z-index: 1;
   display: block; width: 100%; max-width: 100%; aspect-ratio: 1 / 1;
   border: 1px solid var(--linha); border-radius: 14px;
   background: var(--alvo-papel);
 }
+/* ao vivo: o video da camara fica por baixo da tela, que passa a ser transparente */
+.alvo-tela.ao-vivo { background: transparent; }
+.vivo-caixa {
+  position: absolute; inset: 1px; z-index: 0;
+  overflow: hidden; border-radius: 13px; isolation: isolate;
+  background: #000000;
+}
+.vivo-video {
+  position: absolute; left: 0; top: 0; width: 2px; height: 2px; max-width: none;
+  transform-origin: 0 0; transition: transform 0.18s linear;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) { .vivo-video { transition: none; } }
 #tela { touch-action: none; -webkit-user-select: none; user-select: none; cursor: crosshair; }
 .alvo-tela.mapa { max-width: 380px; align-self: center; }
 .aviso-foto {
-  position: absolute; left: 10px; top: 10px;
+  position: absolute; left: 10px; top: 10px; z-index: 2;
   padding: 4px 8px;
   background: var(--acento); color: var(--sobre-acento);
   font-size: 12px; font-weight: 600; border-radius: 6px;
@@ -303,7 +317,6 @@ table.dados { width: 100%; border-collapse: collapse; font-size: 13px; font-vari
 .barra .botao { flex: 1 1 auto; }
 .zoom button { font-family: var(--f-dados); padding-inline: 10px; min-width: 42px; }
 .foto-ctl, .vivo-ctl { border-style: dashed; box-shadow: none; }
-.vivo-video { position: absolute; left: 0; top: 0; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; }
 .vivo-topo { display: flex; align-items: flex-start; gap: 10px; }
 .vivo-topo p { min-width: 0; font-weight: 500; }
 .vivo-luz { flex: none; width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--suave); }
@@ -580,7 +593,7 @@ table.dados { width: 100%; border-collapse: collapse; font-size: 13px; font-vari
     </section>
 
     <div class="alvo-caixa">
-      <video id="vivo-video" class="vivo-video" playsinline muted></video>
+      <div class="vivo-caixa" id="vivo-caixa" hidden><video id="vivo-video" class="vivo-video" autoplay playsinline muted></video></div>
       <canvas id="tela" class="alvo-tela" aria-label="Alvo à escala. Toca para marcar um impacto e arrasta para afinar a posição."></canvas>
       <div class="aviso-foto" id="aviso-foto" hidden>A mover a fotografia</div>
     </div>
@@ -778,7 +791,8 @@ table.dados { width: 100%; border-collapse: collapse; font-size: 13px; font-vari
       </details>
       <details>
         <summary>Ver os impactos ao vivo</summary>
-        <p>Na app instalada no telemóvel, toca em Ao vivo no ecrã do alvo e autoriza a câmara. Põe o telemóvel num tripé ou num apoio firme, apontado ao alvo, e toca no alvo na imagem até ele encher o ecrã. Quando a app o encontra, alinha a imagem pelo disco preto, fixa uma referência e passa a marcar sozinha cada impacto novo. Precisa de pelo menos 3 píxeis da câmara por furo: a 10 metros isso pede a teleobjetiva de 3× de um iPhone Pro, ou um telescópio com suporte para o telemóvel. Os furos no preto só se veem se o fundo atrás do alvo for claro. Confirma os tiros junto às linhas e corrige com Mover; se mexeres no telemóvel, toca em Nova referência.</p>
+        <p>Na app instalada no telemóvel, toca em Ao vivo no ecrã do alvo e autoriza a câmara. Põe o telemóvel num tripé ou num apoio firme, apontado ao alvo: o ecrã mostra a imagem da câmara em direto. A app procura o alvo sozinha; quando o encontra, aproxima a imagem até ele encher o ecrã, desenha os anéis por cima, fixa uma referência e passa a marcar cada impacto novo. Se escolher o alvo de outra pista, toca em Procurar outro alvo; se não der com nenhum, toca no teu alvo na imagem.</p>
+        <p>Para marcar os tiros sozinha, a app precisa de pelo menos 3 píxeis da câmara por furo: a 10 metros isso pede a teleobjetiva de 3× de um iPhone Pro com o zoom da câmara, ou um telescópio com suporte para o telemóvel. Com menos do que isso continuas a ver o alvo ampliado e marcas os tiros com o dedo por cima da imagem. Os furos no preto só se veem se o fundo atrás do alvo for claro. Confirma os tiros junto às linhas e corrige com Mover; se mexeres no telemóvel, toca em Nova referência.</p>
       </details>
       <details>
         <summary>Fazer uma prova</summary>
@@ -1397,7 +1411,7 @@ raiz.DetetorAlvo = { analisar, ajustarElipse, componentes };
 
 /* ---------- base: tabelas, formatos e ajudas para construir a pagina ---------- */
 
-const VERSAO = "2.2";
+const VERSAO = "2.3";
 const DATA_VERSAO = "26/11/2026";
 
 /* Dimensoes oficiais ISSF (Regras Tecnicas Gerais, 6.3.4): diametro de cada anel
@@ -1937,18 +1951,23 @@ function caixaRedonda(c, x, y, w, a, r) {
 
 /* Desenha o alvo e os tiros com o centro do alvo em (mx, my) e k pixeis por milimetro.
    Serve para o alvo grande, para a lupa e para a imagem que se partilha. Opcoes:
-   foto e fotoT (fotografia por baixo), cal (calibre), numeros (numeros dos aneis),
+   foto e fotoT (fotografia por baixo), porBaixo (a fotografia ja esta na pagina, por
+   baixo da tela, e nao se desenha), cal (calibre), numeros (numeros dos aneis),
    sel (tiro escolhido), oculto (tiro que nao se desenha), rotulos (numero de cada tiro),
    semRotulos, semUltimo, mapa (so pontos), elipse e centro (cruz no centro do grupo). */
 function cena(c, def, tiros, o, k, mx, my, K, limite) {
   if (o.foto && o.fotoT.auto) {
     // Retifica a fotografia: o disco preto, que na foto e uma elipse, fica redondo e ao centro.
-    const t = o.fotoT, g = k * t.Rmm;
-    const ta = g * t.m[0], tb = g * t.m[2], tc = g * t.m[1], td = g * t.m[3];
-    c.save();
-    c.transform(ta, tb, tc, td, mx - (ta * t.cx + tc * t.cy), my - (tb * t.cx + td * t.cy));
-    c.drawImage(o.foto, 0, 0);
-    c.restore();
+    // No modo ao vivo a imagem e o proprio video, que a pagina poe por baixo da tela com
+    // esta mesma transformacao (vivoPorVideo): aqui so se desenha o que vai por cima.
+    if (!o.porBaixo) {
+      const t = o.fotoT, g = k * t.Rmm;
+      const ta = g * t.m[0], tb = g * t.m[2], tc = g * t.m[1], td = g * t.m[3];
+      c.save();
+      c.transform(ta, tb, tc, td, mx - (ta * t.cx + tc * t.cy), my - (tb * t.cx + td * t.cy));
+      try { c.drawImage(o.foto, 0, 0); } catch (e) { /* o video ainda nao tem imagem */ }
+      c.restore();
+    }
   } else if (o.foto) {
     const mmpp = o.fotoT.base * o.fotoT.mult;
     const w = o.foto.width * mmpp * k, a = o.foto.height * mmpp * k;
@@ -2073,7 +2092,8 @@ function desenharLupa(c, def, tiros, o, k, lado, K) {
   c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.clip();
   c.fillStyle = K.papel;
   c.fillRect(cx - R, cy - R, 2 * R, 2 * R);
-  cena(c, def, tiros, Object.assign({}, o, { numeros: false, centro: false, elipse: null, semRotulos: true }), k2, cx - o.prov.x * k2, cy + o.prov.y * k2, K, R);
+  // na lupa a imagem desenha-se sempre, mesmo quando no alvo grande e o video que esta por baixo
+  cena(c, def, tiros, Object.assign({}, o, { numeros: false, centro: false, elipse: null, semRotulos: true, porBaixo: false }), k2, cx - o.prov.x * k2, cy + o.prov.y * k2, K, R);
   c.strokeStyle = K.ultimo; c.lineWidth = 2;
   c.beginPath(); c.arc(cx, cy, o.cal / 2 * k2, 0, TAU); c.stroke();
   c.lineWidth = 1.2;
@@ -2112,8 +2132,8 @@ function desenhar(tela, def, tiros, o) {
   const k = (lado / 2) / raioVista;
   const mx = lado / 2 - (o.cx || 0) * k, my = lado / 2 + (o.cy || 0) * k;
 
-  c.fillStyle = K.papel;
-  c.fillRect(0, 0, lado, lado);
+  if (o.porBaixo) c.clearRect(0, 0, lado, lado);
+  else { c.fillStyle = K.papel; c.fillRect(0, 0, lado, lado); }
   cena(c, def, tiros, o, k, mx, my, K, lado / 2);
 
   if (o.prov) {
@@ -2342,14 +2362,16 @@ function pintarAlvo() {
   const vistos = tirosVistos();
   const selVisto = E.sel >= 0 ? vistos.indexOf(E.tiros[E.sel]) : -1;
   const lido = fotoLida();
-  // Com a camara ligada e ainda sem alvo a seguir, o ecra mostra a imagem da camara.
+  // Com a camara ligada a imagem e o video, por baixo da tela: sem alvo a seguir a tela
+  // so marca onde tocar; com alvo, desenha os aneis e os tiros por cima dele.
   if (vivoEmProcura()) pintarProcura();
   else kAtual = desenhar(cv, def, vistos, {
-    zoom: E.zoom, sel: selVisto, prov: E.prov, foto: E.foto, fotoT: E.fotoT,
+    zoom: E.zoom, sel: selVisto, prov: E.prov, foto: E.foto, fotoT: E.fotoT, porBaixo: vivoPorBaixo(),
     cal: E.calibre, numeros: true, centro: true, lupa: P.lupa,
     oculto: arrasto && arrasto.tipo === "mover" ? selVisto : -1,
     rotulos: rotulosDosTiros(vistos), semUltimo: lido
   });
+  vivoPorVideo();
   const n = vistos.length;
   if (E.prov) {
     $("rot-ultimo").textContent = "A marcar";
@@ -2438,7 +2460,9 @@ function pintar() {
   $("dica").textContent = E.mover && escolhido
     ? "A mover o tiro: arrasta no alvo e larga na posição certa."
     : vivoLigado()
-      ? "Ao vivo: a imagem é a da câmara, alinhada pelo disco preto. Podes marcar ou corrigir tiros com o dedo por cima dela."
+      ? (vivoEmProcura()
+        ? "Ao vivo: a imagem é a da câmara. Quando a app encontra o alvo, aproxima-o e desenha os anéis por cima."
+        : "Ao vivo: a imagem é a da câmara, alinhada pelo disco preto. Podes marcar ou corrigir tiros com o dedo por cima dela.")
       : "No telemóvel, o ponto aparece acima do dedo e a lupa mostra a zona ampliada. Arrasta para afinar e larga para marcar.";
 
   /* agrupamento */
@@ -2465,7 +2489,7 @@ function pintar() {
   /* ferramentas */
   $("desfazer").disabled = vistos.length === 0;
   $("limpar").hidden = prova;
-  $("limpar").disabled = E.tiros.length === 0 && !E.foto;
+  $("limpar").disabled = E.tiros.length === 0 && (!E.foto || vivoLigado());
   const guardar = $("guardar");
   guardar.textContent = Loja.aGuardar ? "A guardar…" : !prova ? "Guardar série" : st.n > 0 && st.n < regra.prova ? "Guardar prova incompleta" : "Guardar prova";
   guardar.disabled = Loja.aGuardar || (prova ? !(st.n > 0 && st.n <= regra.prova) : st.n === 0);
@@ -4541,13 +4565,17 @@ doisPassos($("apagar-tudo"), "Confirmar: apagar tudo", () => { apagarTudo(); });
 /* ---------- ao vivo: visao (nada aqui toca na pagina) ---------- */
 
 /* Segue o alvo numa sequencia de imagens da camara e encontra os impactos novos.
-   O ecra entrega, varias vezes por segundo, um recorte quadrado da imagem da
-   camara em tons de cinzento, e diz como esse recorte se situa na imagem inteira:
-   camara = { x0, y0 } + recorte * k. O seguidor:
-   1. acha o disco preto do alvo no recorte (centro, tamanho e forma);
-   2. tira dai um "retalho" alinhado, sempre com o centro do alvo ao meio e a mesma
+   O ecra entrega, umas vezes por segundo, um recorte quadrado da imagem da camara
+   num so canal, e diz como esse recorte se situa na imagem inteira: o pixel i do
+   recorte ve o ponto x0 + (i + 0.5) * k da camara. O recorte tanto pode ser largo
+   (a zona onde se procura o alvo) como justo (so o alvo que ja se segue). O seguidor:
+   1. procura no recorte largo as manchas com cara de alvo e, se forem pequenas
+      demais para medir dali, pede para as ver de perto na imagem seguinte;
+   2. no recorte justo mede o disco preto (centro, tamanho e forma) e diz ao ecra
+      como enquadrar a imagem da camara para o alvo ficar redondo e ao centro;
+   3. tira dai um "retalho" alinhado, sempre com o centro do alvo ao meio e a mesma
       escala, e faz a media dos ultimos retalhos para limpar o ruido;
-   3. compara essa media com uma referencia: uma mancha nova, redonda e do tamanho
+   4. compara essa media com uma referencia: uma mancha nova, redonda e do tamanho
       de um furo, que se mantenha uns instantes, e um impacto. */
 
 const VIVO_N = 448;        // lado do retalho alinhado, em pixeis
@@ -4555,6 +4583,8 @@ const VIVO_FOLGA = 1.14;   // margem do recorte da camara a volta do alvo
 const VIVO_ALFA = 0.35;    // peso de cada imagem nova na media
 const VIVO_LIMIAR = 0.1;   // diferenca media (0 = igual, 1 = de preto a papel) para haver candidato
 const VIVO_MIN_SEGUIR = 1.6;   // pixeis da camara por furo abaixo dos quais nem vale a pena seguir o alvo
+const VIVO_PERDIDO = 8;    // imagens seguidas sem ver o alvo ate deixar de o seguir
+const VIVO_NIVEIS = [0.07, 0.13, 0.22, 0.34, 0.48, 0.64, 0.8];   // niveis de "escuro" com que se procura o disco
 
 /* De cor para um so canal: o menor dos tres (vermelho, verde, azul). O cartao dos
    alvos e bege e o que se ve por um furo e cinzento, quase com a mesma claridade:
@@ -4579,49 +4609,90 @@ function vivoMediana(v) {
   return c[c.length >> 1];
 }
 
-/* Procura no recorte a mancha escura mais parecida com um disco e mais perto do
-   meio. Devolve um palpite { cx, cy, r } em pixeis do recorte, ou null. */
-function vivoProcurarDisco(g, W, H) {
-  const f = Math.max(1, Math.round(W / 280));
-  const sw = Math.floor(W / f), sh = Math.floor(H / f);
-  const peq = new Uint8Array(sw * sh), hist = new Uint32Array(256);
-  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
-    const v = g[(y * f + (f >> 1)) * W + x * f + (f >> 1)];
-    peq[y * sw + x] = v; hist[v]++;
-  }
-  const perc = (p) => { let ac = 0; const alvo = sw * sh * p; for (let v = 0; v < 256; v++) { ac += hist[v]; if (ac >= alvo) return v; } return 255; };
-  const meio = perc(0.6);
-  let melhor = null, melhorNota = 0;
-  // O disco pode ocupar muito ou pouco do recorte: tenta-se com dois niveis de "escuro".
-  for (const parte of [0.003, 0.04]) {
-    const escuro = perc(parte);
-    if (meio - escuro < 30) continue;
-    const corte = escuro + 0.4 * (meio - escuro);
+/* Procura no recorte as manchas escuras com forma de disco e claro a toda a volta,
+   do tamanho que for: de um alvo ao longe, com meia duzia de pixeis, a um alvo que
+   enche a imagem. Experimenta varios niveis de "escuro", porque a volta do alvo
+   tanto pode estar uma parede clara como uma carreira as escuras: um disco preto
+   sobre papel aparece isolado em quase todos os niveis, uma sombra so num ou noutro.
+   Devolve os candidatos { cx, cy, r, nota } em pixeis do recorte, do melhor para o
+   pior. f e o passo da grelha: 2 para os discos de dez pixeis para cima, 1 (mais
+   lento) para os mais pequenos do que isso. */
+function vivoProcurarDiscos(g, W, H, f) {
+  const hist = new Uint32Array(256), total = W * H;
+  for (let i = 0; i < total; i++) hist[g[i]]++;
+  const ateContar = (n) => { let ac = 0; for (let v = 0; v < 256; v++) { ac += hist[v]; if (ac >= n) return v; } return 255; };
+  // Com o alvo ao longe, o cartao iluminado pode ser menos de um centesimo da imagem e
+  // o disco preto uns quarenta pixeis ao todo: o claro mede-se quase no topo, e o
+  // escuro pelos doze pixeis mais escuros, e nao por uma percentagem da imagem.
+  const baixo = ateContar(12), alto = ateContar(total * 0.9995);
+  if (alto - baixo < 40) return [];
+  const amostra = (x, y) => { const i = Math.round(x), j = Math.round(y); return i >= 0 && j >= 0 && i < W && j < H ? g[j * W + i] : -1; };
+  const achados = [];
+  {
+    const sw = Math.floor(W / f), sh = Math.floor(H / f), meio = f >> 1;
     const masc = new Uint8Array(sw * sh);
-    for (let i = 0; i < sw * sh; i++) masc[i] = peq[i] <= corte ? 1 : 0;
-    const cc = window.DetetorAlvo.componentes(masc, sw, sh);
-    for (const c of cc.lista) {
-      const bw = c.x1 - c.x0 + 1, bh = c.y1 - c.y0 + 1;
-      if (bw < 5 || bh < 5) continue;
-      if (c.x0 === 0 || c.y0 === 0 || c.x1 === sw - 1 || c.y1 === sh - 1) continue;
-      const aspeto = Math.min(bw, bh) / Math.max(bw, bh), cheio = c.area / (bw * bh);
-      if (aspeto < 0.72 || cheio < 0.5 || cheio > 0.92) continue;
-      const longe = Math.hypot(c.cx - sw / 2, c.cy - sh / 2) / (sw / 2);
-      const nota = c.area * aspeto * (1 - Math.abs(cheio - 0.76)) * Math.exp(-2 * longe * longe);
-      if (nota > melhorNota) {
-        melhorNota = nota;
-        melhor = { cx: (c.cx + 0.5) * f, cy: (c.cy + 0.5) * f, r: Math.max(bw, bh) * f / 2 };
+    for (const q of VIVO_NIVEIS) {
+      const corte = baixo + q * (alto - baixo);
+      for (let y = 0; y < sh; y++) {
+        const o = (y * f + meio) * W + meio, p = y * sw;
+        for (let x = 0; x < sw; x++) masc[p + x] = g[o + x * f] <= corte ? 1 : 0;
+      }
+      const cc = window.DetetorAlvo.componentes(masc, sw, sh);
+      for (const c of cc.lista) {
+        const bw = c.x1 - c.x0 + 1, bh = c.y1 - c.y0 + 1, maior = Math.max(bw, bh);
+        if (bw < 5 || bh < 5) continue;
+        if (f === 1 && maior > 26) continue;                 // os maiores veem-se na grelha larga
+        if (c.x0 === 0 || c.y0 === 0 || c.x1 === sw - 1 || c.y1 === sh - 1) continue;
+        // De perto, as linhas claras dos aneis cortam o preto em coroas, e uma coroa
+        // enche menos a sua caixa do que um disco: aos grandes pede-se menos.
+        const aspeto = Math.min(bw, bh) / maior, cheio = c.area / (bw * bh);
+        if (aspeto < 0.72 || cheio > 0.92 || cheio < (maior * f >= 40 ? 0.3 : 0.55)) continue;
+        const cx = (c.x0 + c.x1) / 2 * f + meio, cy = (c.y0 + c.y1) / 2 * f + meio;
+        const rx = bw * f / 2, ry = bh * f / 2;
+        // escuro por dentro e claro a toda a volta, com folga para uns furos ou uma sombra
+        const fora = [], dentro = [];
+        for (let a = 0; a < 16; a++) {
+          const dx = Math.cos(a * Math.PI / 8), dy = Math.sin(a * Math.PI / 8);
+          const v = amostra(cx + dx * rx * 1.45, cy + dy * ry * 1.45);
+          if (v >= 0) fora.push(v);
+          if (a % 4 === 0) { const w = amostra(cx + dx * rx * 0.3, cy + dy * ry * 0.3); if (w >= 0) dentro.push(w); }
+        }
+        if (fora.length < 12 || !dentro.length) continue;
+        fora.sort((u, v) => u - v);
+        const claro = fora[fora.length >> 2], escuro = vivoMediana(dentro);
+        if (claro - escuro < Math.max(26, 0.12 * (alto - baixo))) continue;
+        const r = (rx + ry) / 2;
+        let par = null;
+        for (const a of achados) {
+          if (Math.hypot(a.cx - cx, a.cy - cy) < 0.6 * Math.max(a.r, r) && r < 1.7 * a.r && a.r < 1.7 * r) { par = a; break; }
+        }
+        if (!par) { par = { cx, cy, r, votos: 0, longe: 1e9, contraste: 0, forma: 0 }; achados.push(par); }
+        par.votos++;
+        // fica a medida tirada mais perto do meio-tom entre o preto e o papel, que e onde a orla esta
+        const longe = Math.abs(corte - (claro + escuro) / 2);
+        if (longe < par.longe) {
+          par.longe = longe; par.cx = cx; par.cy = cy; par.r = r;
+          par.contraste = claro - escuro; par.forma = aspeto * (1 - Math.abs(cheio - 0.76));
+        }
       }
     }
   }
-  return melhor;
+  // Entre manchas com igual cara de alvo (os alvos das pistas ao lado sao iguais ao
+  // nosso) ganha a que estiver mais perto do meio, que e para onde o utilizador aponta.
+  for (const a of achados) {
+    const fx = (a.cx - (W - 1) / 2) / (W / 2), fy = (a.cy - (H - 1) / 2) / (H / 2);
+    a.nota = (a.votos >= 2 ? 1 : 0.5) * Math.min(1, a.contraste / 60) * a.forma * Math.exp(-5 * (fx * fx + fy * fy));
+  }
+  achados.sort((p, q) => q.nota - p.nota);
+  return achados.slice(0, 8);
 }
 
 /* A partir de um palpite, mede a orla do disco preto ao longo de raios (com
    fracoes de pixel) e ajusta-lhe uma elipse, pondo de parte os pontos que saem
    dela, como os furos na orla. Devolve o centro, a matriz m que leva um ponto do
-   recorte para o disco unitario e os niveis de preto e de papel; ou null. */
-function vivoAfinarDisco(g, W, H, palpite) {
+   recorte para o disco unitario e os niveis de preto e de papel; ou null.
+   tolerancia e quanto a orla se pode afastar da elipse, em fracao do raio. */
+function vivoAfinarDisco(g, W, H, palpite, tolerancia) {
   const cx0 = palpite.cx, cy0 = palpite.cy, r0 = palpite.r;
   if (!(r0 >= 4)) return null;
   const pretos = [], papeis = [];
@@ -4657,9 +4728,15 @@ function vivoAfinarDisco(g, W, H, palpite) {
   // Um furo claro junto a orla puxa para dentro os pontos vizinhos, uns decimos de
   // pixel cada um. Com tolerancia fixa ficavam, e o disco saia mais pequeno e
   // desviado. Por isso o corte faz-se pela mediana dos desvios desta imagem.
-  let el = ajustar(pontos);
+  let el = ajustar(pontos), desvio = -1;
   for (let it = 0; it < 6 && el; it++) {
     const desvios = pontos.map((p) => Math.abs(normal(el, p) - 1));
+    if (desvio < 0) {
+      // A orla de um disco, mesmo com furos e vista de lado, cola-se a elipse a menos de
+      // 2% do raio; a de uma caixa quadrada ou de uma mancha qualquer afasta-se uns 10%.
+      desvio = vivoMediana(desvios);
+      if (desvio > (tolerancia || 0.04)) return null;
+    }
     const corte = Math.max(2.5 * 1.4826 * vivoMediana(desvios), 0.1 / r0);
     const bons = pontos.filter((p, i) => desvios[i] <= corte);
     if (bons.length < 80 || bons.length === pontos.length) break;
@@ -4667,7 +4744,21 @@ function vivoAfinarDisco(g, W, H, palpite) {
     el = ajustar(pontos);
   }
   if (!el || el.menor / el.maior < 0.55) return null;
-  return { cx: el.cx, cy: el.cy, m: el.m, maior: el.maior, menor: el.menor, r: Math.sqrt(el.maior * el.menor), preto, papel };
+  // Um alvo e um disco preto no meio de um cartao claro: tem de haver papel a toda a
+  // volta, bem para la do preto. Uma sombra, uma cabeca ou um objeto escuro nao tem.
+  const det = el.m[0] * el.m[3] - el.m[1] * el.m[2];
+  let vistos = 0, claros = 0;
+  for (let a = 0; a < 360; a += 10) {
+    const ux = Math.cos(a * Math.PI / 180), uy = Math.sin(a * Math.PI / 180);
+    for (const q of [1.6, 1.9, 2.2]) {
+      const v = vivoAmostra(g, W, H, el.cx + q * (el.m[3] * ux - el.m[1] * uy) / det, el.cy + q * (el.m[0] * uy - el.m[2] * ux) / det);
+      if (v < 0) continue;
+      vistos++;
+      if (v > preto + 0.55 * (papel - preto)) claros++;
+    }
+  }
+  if (vistos >= 60 && claros < 0.8 * vistos) return null;
+  return { cx: el.cx, cy: el.cy, m: el.m, maior: el.maior, menor: el.menor, r: Math.sqrt(el.maior * el.menor), preto, papel, desvio, pontos: pontos.length };
 }
 
 function criarSeguidor(def, calibre) {
@@ -4693,7 +4784,14 @@ function criarSeguidor(def, calibre) {
     limpo[j * N + i] = d > rPreto || d < rDez ? 1 : 0;
   }
 
-  const st = { disco: null, perdido: 0, quietos: 0, acum: null, nAcum: 0, ref: null, pend: [], absorver: [], mudanca: 0, assentar: 0, tique: 0, raios: [], forma: null };
+  /* disco e o alvo na imagem da camara ({ cx, cy, r } em pixeis dela). Pode ser so uma
+     pista: uma mancha por confirmar (semente > 0) ou um alvo pequeno demais para seguir
+     (miudo). casa e onde estava o alvo quando se fixou a referencia; aDedo diz que foi
+     o utilizador a escolhe-lo; evitar sao sitios onde nao vale a pena voltar a olhar
+     tao cedo; vista e o enquadramento para o ecra. */
+  const st = { disco: null, semente: 0, miudo: false, casa: null, aDedo: false, evitar: [], vista: null,
+    perdido: 0, quietos: 0, acum: null, nAcum: 0, ref: null, pend: [], absorver: [], mudanca: 0, assentar: 0, tique: 0, raios: [], forma: null };
+  const seguido = () => !!st.disco && !st.semente && !st.miudo;
 
   function amostrar(g, W, d) {
     // u = m (p - c), logo p = c + m^-1 u, com u = (X, Y para baixo) / Rmm
@@ -4857,41 +4955,111 @@ function criarSeguidor(def, calibre) {
     return { mudou: false, novos };
   }
 
-  /* Uma imagem nova. g e o recorte quadrado (W x W) em cinzentos; mapa diz onde
-     ele esta na imagem da camara. Devolve o estado e os impactos novos, em mm. */
-  function passo(g, W, mapa) {
+  /* Um candidato so serve se nao for um sitio ja posto de parte e, depois de fixada
+     uma referencia, se estiver onde o alvo estava e tiver o tamanho dele: o alvo e
+     aquele, e nao se salta para o do vizinho so porque o nosso ficou tapado.
+     Ha uma excecao, para quando se reaponta o telemovel: perdido o alvo, tambem serve
+     um do mesmo tamanho que apareca ao centro da imagem (centro = { cx, cy, raio }),
+     que e para onde se aponta. O alvo do vizinho fica a um metro, fora dessa zona. Se
+     foi o utilizador a escolher o alvo a dedo, a excecao nao vale. */
+  function aceitavel(c, centro) {
+    if (st.evitar.some((e) => Math.hypot(c.cx - e.cx, c.cy - e.cy) < Math.max(e.r, c.r))) return false;
+    const a = st.casa;
+    if (!a) return true;
+    if (!(c.r > 0.6 * a.r && c.r < 1.7 * a.r)) return false;
+    if (Math.hypot(c.cx - a.cx, c.cy - a.cy) < 8 * a.r) return true;
+    return !st.disco && !st.aDedo && !!centro && Math.hypot(c.cx - centro.cx, c.cy - centro.cy) < centro.raio;
+  }
+
+  function fim(estado, extra) {
+    const s = seguido();
+    return Object.assign({
+      estado, disco: s ? st.disco : null, vista: s ? st.vista : null,
+      escala: s ? (st.raios.length ? vivoMediana(st.raios) : st.disco.r) / Rmm : 0,
+      novos: [], mudou: false, perdido: st.perdido, quietos: st.quietos
+    }, extra);
+  }
+
+  /* Uma imagem nova. g e o recorte quadrado (W x W) num so canal; mapa diz onde ele
+     esta na imagem da camara; largo diz que e a zona de procura e nao o recorte justo
+     do alvo. Devolve o estado, o enquadramento para o ecra e os impactos novos, em mm. */
+  function passo(g, W, mapa, largo) {
     st.tique++;
-    let palpite = st.disco
-      ? { cx: (st.disco.cx - mapa.x0) / mapa.k, cy: (st.disco.cy - mapa.y0) / mapa.k, r: st.disco.r / mapa.k }
-      : vivoProcurarDisco(g, W, W);
-    let d = palpite ? vivoAfinarDisco(g, W, W, palpite) : null;
-    if (!d && st.disco) {
-      palpite = vivoProcurarDisco(g, W, W);
-      d = palpite ? vivoAfinarDisco(g, W, W, palpite) : null;
+    st.evitar = st.evitar.filter((e) => e.ate > st.tique);
+    const k = mapa.k;
+    const naCamara = (c) => ({ cx: mapa.x0 + (c.cx + 0.5) * k, cy: mapa.y0 + (c.cy + 0.5) * k, r: c.r * k });
+    // Um disco com meia duzia de pixeis da camara nunca sai bem redondo, por muito que
+    // se amplie: a esses perdoa-se mais. Nao chegam a ser seguidos, so servem para avisar.
+    const tolerancia = (raioNaCamara) => Math.max(0.04, 0.2 / raioNaCamara);
+    let d = null, semente = null;
+    if (st.disco) {
+      const p = { cx: (st.disco.cx - mapa.x0) / k - 0.5, cy: (st.disco.cy - mapa.y0) / k - 0.5, r: st.disco.r / k };
+      if (p.r >= 4) d = vivoAfinarDisco(g, W, W, p, tolerancia(st.disco.r));
+    }
+    // Primeiro a grelha larga; a fina, mais lenta, so na zona de procura e se a larga nao der nada.
+    for (const f of largo ? [2, 1] : [2]) {
+      if (d || semente) break;
+      let tentados = 0;
+      for (const c of vivoProcurarDiscos(g, W, W, f)) {
+        const cam = naCamara(c);
+        if (!aceitavel(cam, mapa.centro)) continue;
+        if (c.r >= 6) d = vivoAfinarDisco(g, W, W, c, tolerancia(cam.r));
+        if (d) break;
+        // pequeno demais para se medir daqui, ou medido sem certeza: fica como pista para ver de perto
+        if (largo && !semente && c.r < 20) semente = cam;
+        if (++tentados >= 5) break;
+      }
     }
     if (!d) {
-      st.perdido++; st.quietos = 0;
-      // Mais de um segundo sem ver o alvo (alguem a frente, cartao a ser trocado): a
-      // referencia deixa de valer; fixa-se outra quando o alvo voltar a estar parado.
-      if (st.perdido === 12) referenciaNova();
-      // Perdido ha muito: recomeca do zero quando o alvo voltar.
-      if (st.perdido > 40) { st.disco = null; st.acum = null; st.nAcum = 0; st.ref = null; st.pend = []; st.absorver = []; st.raios = []; st.forma = null; }
-      return { estado: "sem-alvo", disco: st.disco, escala: st.disco ? st.disco.r / Rmm : 0, novos: [], mudou: false, retalho: st.acum };
+      if (semente) {
+        // Uma mancha com cara de alvo, pequena demais para se medir daqui: fica como
+        // pista, e a imagem seguinte olha para ela de perto.
+        referenciaNova();
+        st.disco = semente; st.semente = 2; st.miudo = false; st.perdido = 0; st.quietos = 0; st.raios = []; st.forma = null; st.vista = null;
+        return fim("sem-alvo", { candidato: semente });
+      }
+      if (st.disco && st.semente) {
+        if (--st.semente > 0) return fim("sem-alvo", { candidato: st.disco });
+        st.evitar.push({ cx: st.disco.cx, cy: st.disco.cy, r: st.disco.r, ate: st.tique + 15 });      // vista de perto, nao era um alvo
+        soltar();
+        return fim("sem-alvo");
+      }
+      if (st.disco && st.miudo) { soltar(); return fim("sem-alvo"); }
+      if (st.disco) {
+        st.perdido++; st.quietos = 0;
+        // Mais de um segundo sem ver o alvo (alguem a frente, cartao a ser trocado, o
+        // telemovel a ser reapontado): deixa de o seguir e a referencia deixa de valer.
+        // Fica a espera dele onde estava, e fixa outra referencia quando voltar.
+        if (st.perdido > VIVO_PERDIDO) soltar();
+      }
+      return fim("sem-alvo");
     }
-    st.perdido = 0;
-    const novo = { cx: mapa.x0 + d.cx * mapa.k, cy: mapa.y0 + d.cy * mapa.k, r: d.r * mapa.k };
+
+    const novo = naCamara(d);
     const escala = novo.r / Rmm;                         // pixeis da camara por milimetro
+    const antes = seguido() ? st.disco : null;
+    st.perdido = 0; st.semente = 0;
     if (escala * calibre < VIVO_MIN_SEGUIR) {
-      // Parece o alvo, mas ocupa tao poucos pixeis que nem os furos se distinguem:
-      // nao se segue (ampliado, so se veria uma mancha), mas diz-se o tamanho que tem.
-      largar();
-      return { estado: "sem-alvo", pequeno: escala, candidato: novo, disco: null, escala: 0, novos: [], mudou: false, retalho: null };
+      // E o alvo, mas ocupa tao poucos pixeis que nem os furos se distinguem. Nao se
+      // segue; continua-se a medi-lo para o ecra poder dizer o tamanho que tem.
+      referenciaNova();
+      st.disco = novo; st.miudo = true; st.quietos = 0; st.raios = []; st.forma = null; st.vista = null;
+      return fim("sem-alvo", { pequeno: escala, candidato: novo });
     }
+    st.miudo = false;
     const limite = Math.max(0.7, 0.12 * escala);         // quanto pode mexer entre duas imagens
-    const estavel = !!st.disco
-      && Math.hypot(novo.cx - st.disco.cx, novo.cy - st.disco.cy) < limite
-      && Math.abs(novo.r - st.disco.r) / st.disco.r < 0.015;
+    const estavel = !!antes
+      && Math.hypot(novo.cx - antes.cx, novo.cy - antes.cy) < limite
+      && Math.abs(novo.r - antes.r) / antes.r < 0.015;
     st.disco = novo;
+    if (largo) {
+      // De longe so se fica a saber onde o alvo esta: a referencia e os impactos
+      // medem-se a partir da imagem seguinte, com o recorte justo a volta dele.
+      referenciaNova();
+      st.quietos = 0; st.raios = []; st.forma = null;
+      st.vista = { cx: novo.cx, cy: novo.cy, m: [d.m[0] / k, d.m[1] / k, d.m[2] / k, d.m[3] / k] };
+      return fim("a-preparar", { escala });
+    }
     st.quietos = estavel ? st.quietos + 1 : 0;
 
     // A camara e o alvo estao parados: o tamanho e a forma do disco nao mudam de uma
@@ -4901,20 +5069,22 @@ function criarSeguidor(def, calibre) {
     if (st.raios.length && Math.abs(novo.r / vivoMediana(st.raios) - 1) > 0.04) { st.raios = []; st.forma = null; referenciaNova(); }   // mudou o zoom ou a distancia
     if (estavel || !st.raios.length) { st.raios.push(novo.r); if (st.raios.length > 31) st.raios.shift(); }
     st.forma = st.forma ? st.forma.map((v, i) => v + (forma[i] - v) * 0.1) : forma;
-    const raioFirme = vivoMediana(st.raios) / mapa.k;
-    amostrar(g, W, { cx: d.cx, cy: d.cy, m: st.forma.map((v) => v / raioFirme), preto: d.preto, papel: d.papel });
+    const raio = vivoMediana(st.raios);
+    amostrar(g, W, { cx: d.cx, cy: d.cy, m: st.forma.map((v) => v * k / raio), preto: d.preto, papel: d.papel });
     if (estavel || !st.acum) juntar();
-    const base = { disco: novo, escala: vivoMediana(st.raios) / Rmm, novos: [], mudou: false, retalho: st.acum };
+    st.vista = { cx: novo.cx, cy: novo.cy, m: st.forma.map((v) => v / raio) };
     if (!st.ref) {
       if (st.nAcum >= 9 && st.quietos >= 4) st.ref = Float32Array.from(st.acum);
-      return Object.assign(base, { estado: st.ref ? "pronto" : "a-preparar" });
+      if (!st.ref) return fim("a-preparar");
     }
-    if (!estavel) return Object.assign(base, { estado: "a-mexer" });
+    st.casa = { cx: novo.cx, cy: novo.cy, r: raio };
+    if (!estavel) return fim("a-mexer");
     const res = comparar();
-    return Object.assign(base, { estado: "pronto", novos: res.novos, mudou: res.mudou });
+    return fim("pronto", { novos: res.novos, mudou: res.mudou });
   }
 
-  /* Recorte da imagem da camara que enquadra o alvo que se esta a seguir. */
+  /* Recorte justo da imagem da camara: enquadra o alvo que se segue, ou a pista que
+     se quer ver de perto. Sem um nem outra devolve null e o ecra entrega a zona de procura. */
   function recorte(larguraCamara, alturaCamara) {
     if (!st.disco) return null;
     const lado = Math.min(larguraCamara, alturaCamara, 2 * Rv * (st.disco.r / Rmm) * VIVO_FOLGA);
@@ -4925,35 +5095,64 @@ function criarSeguidor(def, calibre) {
     };
   }
   function referenciaNova() { st.ref = null; st.acum = null; st.nAcum = 0; st.pend = []; st.absorver = []; st.mudanca = 0; st.assentar = 0; }
-  function largar() { referenciaNova(); st.disco = null; st.perdido = 0; st.quietos = 0; st.raios = []; st.forma = null; }
+  /* Deixa de seguir o alvo, mas lembra-se de onde ele estava. */
+  function soltar() { referenciaNova(); st.disco = null; st.semente = 0; st.miudo = false; st.perdido = 0; st.quietos = 0; st.raios = []; st.forma = null; st.vista = null; }
+  /* Esquece tudo: o proximo alvo pode ser outro, noutro sitio. aDedo diz que e o
+     utilizador a apontar para ele na imagem. */
+  function largar(aDedo) { soltar(); st.casa = null; st.evitar = []; st.aDedo = !!aDedo; }
+  /* O alvo que se seguia nao era o que o utilizador queria: procura outro. */
+  function outro() {
+    const d = st.disco || st.casa, evitar = st.evitar;
+    largar(true);
+    st.evitar = evitar;
+    if (d) st.evitar.push({ cx: d.cx, cy: d.cy, r: d.r * 1.5, ate: st.tique + 60 });
+  }
+  /* O zoom da camara mudou: tudo o que se sabia passou para outro sitio da imagem e
+     ficou com outro tamanho. mover diz para onde vai cada { cx, cy, r }. */
+  function reposicionar(mover) {
+    const d = st.disco, semente = st.semente, miudo = st.miudo, casa = st.casa;
+    soltar();
+    st.evitar = st.evitar.map((e) => Object.assign(mover(e), { ate: e.ate }));
+    if (d) { st.disco = mover(d); st.semente = semente; st.miudo = miudo; }
+    if (casa) st.casa = mover(casa);
+  }
 
-  /* O zoom da camara mudou: o alvo passou a estar noutro sitio e com outro tamanho. */
-  function reposicionar(d) { largar(); st.disco = d; }
-
-  return { N, S, Rv, raioFuro: rf, passo, recorte, referenciaNova, largar, reposicionar, disco: () => st.disco, temAlvo: () => !!st.disco, temReferencia: () => !!st.ref, interno: () => ({ st, dif, retalho }) };
+  return {
+    N, S, Rv, raioFuro: rf, passo, recorte, referenciaNova, largar, outro, reposicionar,
+    disco: () => st.disco, temAlvo: seguido, ancorado: () => !!st.casa, perdido: () => st.perdido,
+    temReferencia: () => !!st.ref, interno: () => ({ st, dif, retalho })
+  };
 }
 
 /* ---------- ao vivo: camara e ecra ---------- */
 
-/* A camara do telemovel fica apontada ao alvo (em tripe ou apoio firme). A app
-   recorta a zona do alvo, entrega-a ao seguidor (13-vivo-visao.js) e mostra no
-   lugar do alvo desenhado a imagem alinhada e limpa de ruido, com os aneis por
-   cima. Cada impacto novo que o seguidor confirma entra na serie como um tiro
-   marcado a mao. So funciona fora do claude.ai, onde a pagina pode usar a camara. */
+/* A camara do telemovel fica apontada ao alvo (em tripe ou apoio firme). O ecra do
+   alvo mostra a propria imagem da camara, a cores e em direto: e o elemento de video,
+   posto por baixo da tela e ampliado ate o alvo encher o quadrado. A tela, por cima e
+   transparente, desenha so os aneis e os tiros. A analise corre a parte, umas vezes
+   por segundo: recorta a zona do alvo, entrega-a ao seguidor (13-vivo-visao.js) e cada
+   impacto novo que ele confirma entra na serie como um tiro marcado a mao. Por muito
+   que a analise demore, a imagem nunca espera por ela.
+   So funciona fora do claude.ai, onde a pagina pode usar a camara. */
 
 const VIVO_R = 560;             // lado, em pixeis, do recorte que se analisa
 const VIVO_MIN_FURO = 3.2;      // pixeis da camara por furo a partir dos quais se marcam tiros sozinho
 const VIVO = {
   ligado: false, fase: "parado", erro: "", aLigar: false,
-  stream: null, pista: null, video: $("vivo-video"),
-  recorte: null, pincel: null, canal: null, roi: null,
+  stream: null, pista: null, video: $("vivo-video"), caixa: $("vivo-caixa"),
+  recorte: null, pincel: null, canal: null,
   seguidor: null, quadro: { w: 0, h: 0 }, procura: { cx: 0, cy: 0, z: 1 },
-  retalho: null, pincelRetalho: null, imagem: null,
-  relogio: null, escala: 0, pequeno: 0, lentes: [], lente: "", zoom: null, zoomFeito: false, aZoom: false, margem: 0, pintado: "", pedido: 0
+  vista: null,                  // enquadramento do alvo que esta aplicado a imagem
+  candidato: null, ancorado: false,
+  relogio: null, volta: 0, custo: 0, pausa: 0, semAlvoDesde: 0,
+  escala: 0, pequeno: 0, lentes: [], lente: "", ultimaLente: "",
+  zoom: null, zoomAuto: true, zoomEm: 0, aZoom: false, margem: 0,
+  estilo: "", pintado: "", falha: "", pedido: 0
 };
 
 function vivoLigado() { return VIVO.ligado; }
 function vivoEmProcura() { return VIVO.ligado && VIVO.fase === "procura"; }
+function vivoPorBaixo() { return VIVO.ligado && E.foto === VIVO.video; }
 function vivoPixeisPorFuro() { return VIVO.escala * E.calibre; }
 function vivoPodeMarcar() { return vivoPixeisPorFuro() >= VIVO_MIN_FURO; }
 
@@ -4964,6 +5163,12 @@ function vivoErro(e) {
   if (nome === "NotFoundError" || nome === "OverconstrainedError") return "Não encontrei uma câmara traseira neste dispositivo.";
   if (nome === "NotReadableError" || nome === "AbortError") return "A câmara está ocupada por outra app. Fecha-a e tenta outra vez.";
   return "Não foi possível ligar a câmara.";
+}
+
+function vivoArrancarVideo() {
+  const v = VIVO.video;
+  if (!v.paused) return;
+  try { const p = v.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* fica para o proximo toque */ }
 }
 
 function vivoPararCamara() {
@@ -4978,16 +5183,13 @@ function vivoPrepararTelas() {
   VIVO.recorte.width = VIVO_R; VIVO.recorte.height = VIVO_R;
   VIVO.pincel = VIVO.recorte.getContext("2d", { willReadFrequently: true });
   VIVO.canal = new Uint8Array(VIVO_R * VIVO_R);
-  VIVO.retalho = document.createElement("canvas");
-  VIVO.retalho.width = VIVO_N; VIVO.retalho.height = VIVO_N;
-  VIVO.pincelRetalho = VIVO.retalho.getContext("2d");
-  VIVO.imagem = VIVO.pincelRetalho.createImageData(VIVO_N, VIVO_N);
 }
 
 /* O Safari nem sempre entrega a resolucao que se pede a primeira (com o telemovel ao
-   alto, largura e altura trocam). Sobe-se por degraus, nas duas orientacoes, e fica-se
-   com a maior que a camara aceitar. */
-async function vivoMelhorarResolucao(pista) {
+   alto, largura e altura trocam): sobe-se por degraus, nas duas orientacoes, e fica-se
+   com a maior que a camara aceitar. Com zoom na camara bastam as 1080 linhas (ate e o
+   lado maior que se quer); sem zoom, o pormenor so pode vir de um video com mais pixeis. */
+async function vivoMelhorarResolucao(pista, ate) {
   if (!pista || !pista.applyConstraints || !pista.getSettings) return;
   const lado = () => { try { const s = pista.getSettings(); return Math.max(s.width || 0, s.height || 0); } catch (e) { return 0; } };
   let melhor = lado(), comQue = null;
@@ -4998,8 +5200,9 @@ async function vivoMelhorarResolucao(pista) {
   };
   let cap = {};
   try { cap = pista.getCapabilities ? pista.getCapabilities() : {}; } catch (e) { cap = {}; }
-  const degraus = [[3840, 2160], [1920, 1080]];
+  let degraus = [[3840, 2160], [1920, 1080]];
   if (cap.width && cap.height && cap.width.max > 0 && cap.height.max > 0) degraus.unshift([Math.max(cap.width.max, cap.height.max), Math.min(cap.width.max, cap.height.max)]);
+  if (ate) degraus = degraus.filter((d) => d[0] <= ate);
   for (const [comprido, curto] of degraus) {
     if (melhor >= comprido * 0.95) break;
     await tentar(comprido, curto);
@@ -5010,24 +5213,62 @@ async function vivoMelhorarResolucao(pista) {
 }
 
 /* O zoom da camara amplia a partir do meio da imagem. Num sensor com mais pixeis do
-   que o video, ampliar da detalhe verdadeiro: e a maneira de chegar a resolucao toda
-   da teleobjetiva quando o Safari so entrega video de 1080 linhas. */
+   que o video, ampliar da detalhe verdadeiro, e a camara passa a medir a luz e o
+   foco so na zona do alvo. Devolve uma promessa que diz se o zoom mudou. */
 async function vivoAplicarZoom(valor) {
   const z = VIVO.zoom;
-  if (!z || !VIVO.pista) return;
-  const novo = Math.max(z.min, Math.min(z.max, valor)), f = novo / z.valor;
-  if (!(Math.abs(f - 1) > 0.01)) return;
-  try { await VIVO.pista.applyConstraints({ advanced: [{ zoom: novo }] }); } catch (e) { return; }
-  z.valor = novo;
+  if (!z || !VIVO.pista || VIVO.aZoom) return false;
+  const novo = Math.max(z.min, Math.min(z.max, valor));
+  if (!(Math.abs(novo / z.valor - 1) > 0.01)) return false;
+  const pedido = VIVO.pedido, pista = VIVO.pista;
+  VIVO.aZoom = true; VIVO.zoomEm = Date.now();
+  let feito = novo;
+  try {
+    await pista.applyConstraints({ advanced: [{ zoom: novo }] });
+    // o que conta e o zoom com que a camara ficou, que pode nao ser o pedido
+    const real = pista.getSettings ? pista.getSettings().zoom : 0;
+    if (real > 0) feito = real;
+  } catch (e) { feito = z.valor; }
+  VIVO.aZoom = false;
+  if (pedido !== VIVO.pedido) return false;
+  if (!(Math.abs(feito / z.valor - 1) > 0.01)) {
+    // A camara nao foi mais longe: o limite verdadeiro dela e este, e nao se volta a
+    // pedir. Se afinal nao tem zoom nenhum, procura-se o pormenor num video maior.
+    if (novo > z.valor) z.max = z.valor; else z.min = z.valor;
+    if (z.max / z.min < 1.05) {
+      VIVO.zoom = null;
+      vivoMelhorarResolucao(pista, 0).then(() => { VIVO.pintado = ""; }, () => {});
+    }
+    VIVO.pintado = "";
+    pintarVivo();
+    return false;
+  }
+  const f = feito / z.valor;
+  z.valor = feito;
+  // tudo o que se sabia da imagem afasta-se do meio dela na mesma proporcao
   const meioX = VIVO.quadro.w / 2, meioY = VIVO.quadro.h / 2;
-  VIVO.procura.cx = meioX + f * (VIVO.procura.cx - meioX);
-  VIVO.procura.cy = meioY + f * (VIVO.procura.cy - meioY);
-  const d = VIVO.seguidor && VIVO.seguidor.disco();
-  if (d && meioX) VIVO.seguidor.reposicionar({ cx: meioX + f * (d.cx - meioX), cy: meioY + f * (d.cy - meioY), r: d.r * f });
+  const mover = (p) => ({ cx: meioX + f * (p.cx - meioX), cy: meioY + f * (p.cy - meioY), r: p.r * f });
+  if (meioX) {
+    const p = mover({ cx: VIVO.procura.cx, cy: VIVO.procura.cy, r: 1 });
+    VIVO.procura.cx = p.cx; VIVO.procura.cy = p.cy;
+    if (VIVO.seguidor) VIVO.seguidor.reposicionar(mover);
+    VIVO.escala *= f;
+    if (VIVO.vista) {
+      const c = mover({ cx: VIVO.vista.cx, cy: VIVO.vista.cy, r: 1 });
+      VIVO.vista = { cx: c.cx, cy: c.cy, m: VIVO.vista.m.map((v) => v / f) };
+      vivoAplicarVista(VIVO.escala);
+    }
+    VIVO.candidato = null;
+  }
+  VIVO.pausa = Date.now() + 250;          // a camara demora uns instantes a mudar
   VIVO.pintado = "";
+  pintarAlvo(); pintarVivo();
+  return true;
 }
 
-async function ligarVivo(idLente) {
+/* idLente e a lente pedida; sozinha diz que foi a app a escolhe-la (a teleobjetiva),
+   e que por isso, se ela falhar, serve a camara que houver. */
+async function ligarVivo(idLente, sozinha) {
   if (VIVO.aLigar) return;
   VIVO.erro = "";
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -5037,19 +5278,29 @@ async function ligarVivo(idLente) {
   }
   VIVO.aLigar = true; VIVO.fase = "a-pedir";
   const pedido = ++VIVO.pedido;
+  clearTimeout(VIVO.relogio); VIVO.relogio = null;
   vivoPararCamara();
   pintar();
+  // Video de 1080 linhas, que qualquer telemovel entrega com fluidez. O pormenor a
+  // mais vem do zoom da camara, que aproveita os pixeis todos do sensor.
+  const pedir = (id) => {
+    const opcoes = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+    if (id) opcoes.deviceId = { exact: id }; else opcoes.facingMode = { ideal: "environment" };
+    return navigator.mediaDevices.getUserMedia({ audio: false, video: opcoes });
+  };
+  const escolhida = idLente || VIVO.ultimaLente;
   let stream = null;
   try {
-    // com o telemovel ao alto a imagem vem ao alto: pede-se a resolucao maxima nessa orientacao
-    const aoAlto = window.innerHeight > window.innerWidth;
-    const opcoes = aoAlto ? { width: { ideal: 2160 }, height: { ideal: 3840 } } : { width: { ideal: 3840 }, height: { ideal: 2160 } };
-    if (idLente) opcoes.deviceId = { exact: idLente }; else opcoes.facingMode = { ideal: "environment" };
-    stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: opcoes });
+    try { stream = await pedir(escolhida); }
+    catch (e) {
+      if ((idLente && !sozinha) || !escolhida) throw e;
+      stream = await pedir("");                // a lente da ultima vez, ou a teleobjetiva, nao abriu: fica a que houver
+    }
   } catch (e) {
     if (pedido !== VIVO.pedido) return;
-    VIVO.aLigar = false; VIVO.ligado = false; VIVO.fase = "parado";
-    clearInterval(VIVO.relogio); VIVO.relogio = null;
+    VIVO.aLigar = false; VIVO.ligado = false;
+    vivoSemAlvo();
+    VIVO.fase = "parado";
     VIVO.erro = vivoErro(e);
     pintar();
     return;
@@ -5057,52 +5308,66 @@ async function ligarVivo(idLente) {
   if (pedido !== VIVO.pedido) { try { stream.getTracks().forEach((t) => t.stop()); } catch (e) { /* ja parada */ } return; }
   VIVO.stream = stream;
   const v = VIVO.video;
+  VIVO.caixa.hidden = false;                   // o video tem de estar na pagina para o telemovel o por a andar
   v.srcObject = VIVO.stream;
   try { await v.play(); } catch (e) { /* arranca no primeiro toque */ }
-  VIVO.pista = VIVO.stream.getVideoTracks()[0];
-  await vivoMelhorarResolucao(VIVO.pista);
   if (pedido !== VIVO.pedido) return;
+  VIVO.pista = VIVO.stream.getVideoTracks()[0];
   let cap = {}, def = {};
-  try { cap = VIVO.pista.getCapabilities ? VIVO.pista.getCapabilities() : {}; def = VIVO.pista.getSettings ? VIVO.pista.getSettings() : {}; } catch (e) { /* sem estas funcoes */ }
+  const lerCamara = () => { try { cap = VIVO.pista.getCapabilities ? VIVO.pista.getCapabilities() : {}; def = VIVO.pista.getSettings ? VIVO.pista.getSettings() : {}; } catch (e) { /* sem estas funcoes */ } };
+  lerCamara();
+  const comZoom = !!(cap.zoom && cap.zoom.max >= 2 * Math.max(cap.zoom.min, 0.1));
+  await vivoMelhorarResolucao(VIVO.pista, comZoom ? 1920 : 0);
+  if (pedido !== VIVO.pedido) return;
+  lerCamara();
   VIVO.zoom = cap.zoom && cap.zoom.max > cap.zoom.min ? { min: cap.zoom.min, max: cap.zoom.max, passo: cap.zoom.step || 0.1, valor: def.zoom || cap.zoom.min } : null;
   try {
     const todos = await navigator.mediaDevices.enumerateDevices();
     VIVO.lentes = todos.filter((d) => d.kind === "videoinput" && d.label && !/front|frontal|facetime/i.test(d.label));
   } catch (e) { VIVO.lentes = []; }
-  VIVO.lente = def.deviceId || idLente || "";
+  if (pedido !== VIVO.pedido) return;
+  VIVO.lente = def.deviceId || escolhida || "";
   VIVO.aLigar = false;
   // Da primeira vez, se o telemovel tiver teleobjetiva, e essa que interessa.
-  if (!idLente) {
+  if (!escolhida) {
     const tele = VIVO.lentes.find((d) => /tele/i.test(d.label));
-    if (tele && tele.deviceId !== VIVO.lente) return ligarVivo(tele.deviceId);
+    if (tele && tele.deviceId !== VIVO.lente) return ligarVivo(tele.deviceId, true);
   }
+  VIVO.ultimaLente = VIVO.lente;
   vivoPrepararTelas();
   VIVO.seguidor = criarSeguidor(ALVOS[E.alvo], E.calibre);
   VIVO.quadro = { w: 0, h: 0 };
-  VIVO.ligado = true; VIVO.fase = "procura"; VIVO.escala = 0; VIVO.pequeno = 0; VIVO.zoomFeito = false; VIVO.margem = 0;
+  VIVO.ligado = true; VIVO.zoomAuto = true; VIVO.zoomEm = 0; VIVO.margem = 0; VIVO.custo = 0; VIVO.pausa = 0; VIVO.estilo = "";
+  vivoSemAlvo();
   E.foto = null; E.detetados = null; E.moverFoto = false;
   manterEcra(true);
-  clearInterval(VIVO.relogio);
-  VIVO.relogio = setInterval(tiqueVivo, 110);
+  vivoAgendar(60);
   pintar();
 }
 
 function desligarVivo() {
   VIVO.pedido++;
-  clearInterval(VIVO.relogio); VIVO.relogio = null;
+  clearTimeout(VIVO.relogio); VIVO.relogio = null;
   vivoPararCamara();
-  const estavaLigado = VIVO.ligado;
-  VIVO.ligado = false; VIVO.aLigar = false; VIVO.fase = "parado"; VIVO.erro = ""; VIVO.escala = 0;
-  if (estavaLigado && E.foto === VIVO.retalho) { E.foto = null; E.fotoT = { auto: false, ox: 0, oy: 0, base: 1, mult: 1 }; }
+  VIVO.ligado = false; VIVO.aLigar = false; VIVO.aZoom = false; VIVO.erro = "";
+  vivoSemAlvo();
+  VIVO.fase = "parado";
   manterEcra(relogioACorrer());
   pintar();
+}
+
+/* Deixa de haver alvo a seguir: o ecra volta a mostrar a zona de procura. */
+function vivoSemAlvo() {
+  VIVO.fase = "procura"; VIVO.escala = 0; VIVO.pequeno = 0; VIVO.vista = null; VIVO.candidato = null;
+  VIVO.ancorado = false; VIVO.semAlvoDesde = 0;
+  if (E.foto === VIVO.video) { E.foto = null; E.fotoT = { auto: false, ox: 0, oy: 0, base: 1, mult: 1 }; }
 }
 
 /* Se mudar o alvo ou o calibre com a camara ligada, o seguidor recomeca com as medidas novas. */
 function vivoReiniciar() {
   if (!VIVO.ligado) return;
   VIVO.seguidor = criarSeguidor(ALVOS[E.alvo], E.calibre);
-  VIVO.fase = "procura"; VIVO.escala = 0; E.foto = null;
+  vivoSemAlvo();
 }
 
 /* Um tiro novo vindo da camara: entra na serie como um tiro marcado a mao.
@@ -5117,68 +5382,175 @@ function vivoRegistar(x, y) {
   return novo;
 }
 
-function vivoMostrarRetalho(retalho) {
-  const d = VIVO.imagem.data, n = VIVO_N * VIVO_N;
-  // o papel fica a meio tom para os furos claros se verem mais claros do que ele
-  for (let i = 0, j = 0; i < n; i++, j += 4) {
-    let v = retalho[i] * 150;
-    v = v < 0 ? 0 : v > 255 ? 255 : v;
-    d[j] = v; d[j + 1] = v; d[j + 2] = v; d[j + 3] = 255;
-  }
-  VIVO.pincelRetalho.putImageData(VIVO.imagem, 0, 0);
-  const seg = VIVO.seguidor, Rmm = ALVOS[E.alvo].preto / 2, q = 1 / (seg.S * Rmm);
-  E.foto = VIVO.retalho;
-  E.fotoT = { auto: true, m: [q, 0, 0, q], cx: VIVO_N / 2, cy: VIVO_N / 2, Rmm, pxPorMm: seg.S };
+/* Zona da imagem da camara onde se procura o alvo, e que o ecra mostra enquanto nao
+   o encontra: um quadrado a volta do ponto onde o utilizador tocou, ou do meio. */
+function vivoRegiao() {
+  const FW = VIVO.quadro.w, FH = VIVO.quadro.h;
+  const lado = Math.min(FW, FH) / VIVO.procura.z;
+  return { lado, x: Math.max(0, Math.min(FW - lado, VIVO.procura.cx - lado / 2)), y: Math.max(0, Math.min(FH - lado, VIVO.procura.cy - lado / 2)) };
 }
 
+/* O seguidor mede o alvo em cada imagem, e as medidas tremem umas decimas de pixel.
+   Ampliado, isso punha a imagem a vibrar: o enquadramento so muda quando a diferenca
+   se veria no ecra. Devolve se mudou. */
+function vivoAtualizarVista(nova) {
+  const a = VIVO.vista;
+  if (a) {
+    const g = kAtual * ALVOS[E.alvo].preto / 2;                           // pixeis do ecra por raio do disco
+    const desvio = Math.hypot(nova.cx - a.cx, nova.cy - a.cy) * g * Math.hypot(a.m[0], a.m[2]);
+    let forma = 0;
+    for (let i = 0; i < 4; i++) forma = Math.max(forma, Math.abs(nova.m[i] - a.m[i]));
+    if (desvio < 1.2 && forma / Math.hypot(a.m[0], a.m[2]) < 0.006) return false;
+  }
+  VIVO.vista = { cx: nova.cx, cy: nova.cy, m: nova.m.slice() };
+  return true;
+}
+function vivoAplicarVista(escala) {
+  const t = VIVO.vista;
+  E.foto = VIVO.video;
+  E.fotoT = { auto: true, m: t.m, cx: t.cx, cy: t.cy, Rmm: ALVOS[E.alvo].preto / 2, pxPorMm: escala };
+}
+
+/* Poe o video por baixo da tela, no sitio e com o tamanho que fazem coincidir a
+   imagem com o que a tela desenha: a zona de procura, ou o alvo ao centro com os
+   aneis por cima. E o navegador que amplia o video, sem passar por codigo nosso. */
+function vivoPorVideo() {
+  const mostra = VIVO.ligado && VIVO.quadro.w > 0;
+  VIVO.caixa.hidden = !(VIVO.ligado || VIVO.aLigar);
+  if (mostra) cv.classList.add("ao-vivo"); else cv.classList.remove("ao-vivo");
+  if (!mostra) return;
+  const lado = cv.clientWidth;
+  if (!lado) return;
+  const FW = VIVO.quadro.w, FH = VIVO.quadro.h;
+  const base = lado / Math.max(FW, FH);        // o video cabe no quadrado e amplia-se a partir dai
+  let m;
+  if (vivoPorBaixo() && E.fotoT.auto && !vivoEmProcura()) {
+    const t = E.fotoT, g = kAtual * t.Rmm;
+    const a = g * t.m[0], b = g * t.m[2], c = g * t.m[1], d = g * t.m[3];
+    m = [a, b, c, d, lado / 2 - (a * t.cx + c * t.cy), lado / 2 - (b * t.cx + d * t.cy)];
+  } else {
+    const roi = vivoRegiao(), s = lado / roi.lado;
+    m = [s, 0, 0, s, -roi.x * s, -roi.y * s];
+  }
+  const partes = [(FW * base).toFixed(2) + "px", (FH * base).toFixed(2) + "px",
+    "matrix(" + [m[0] / base, m[1] / base, m[2] / base, m[3] / base, m[4], m[5]].map((n) => n.toFixed(5)).join(",") + ")"];
+  const estilo = partes.join("|");
+  if (estilo === VIVO.estilo) return;
+  VIVO.estilo = estilo;
+  const st = VIVO.video.style;
+  st.width = partes[0]; st.height = partes[1]; st.transform = partes[2];
+}
+
+function vivoAgendar(ms) {
+  clearTimeout(VIVO.relogio);
+  VIVO.relogio = setTimeout(tiqueVivo, ms);
+}
+/* A analise marca o seu proprio passo: a seguinte so comeca depois de um descanso
+   proporcional ao tempo que esta levou, para o telemovel nunca ficar preso nela. */
 function tiqueVivo() {
-  if (!VIVO.ligado || E.vista !== "alvo" || document.visibilityState === "hidden") return;
+  VIVO.relogio = null;
+  if (!VIVO.ligado) return;
+  let espera = 300;
+  try { espera = vivoAnalisar(); }
+  catch (e) {
+    // uma imagem que corre mal nao para o modo ao vivo; fica o registo para se perceber porque
+    if (String(e) !== VIVO.falha) { VIVO.falha = String(e); if (window.console) console.error(e); }
+  }
+  if (VIVO.ligado) vivoAgendar(espera);
+}
+
+/* Olha para uma imagem da camara. Devolve quantos milissegundos esperar ate a proxima. */
+function vivoAnalisar() {
+  if (E.vista !== "alvo" || document.visibilityState === "hidden") return 400;
   const v = VIVO.video, FW = v.videoWidth, FH = v.videoHeight;
-  if (!FW || !FH || v.readyState < 2) return;
-  const seg = VIVO.seguidor;
+  vivoArrancarVideo();
+  if (!FW || !FH || v.readyState < 2) return 120;
+  if (VIVO.aZoom || Date.now() < VIVO.pausa) return 80;
+  const t0 = Date.now(), seg = VIVO.seguidor;
+  let redesenhar = false;
   if (FW !== VIVO.quadro.w || FH !== VIVO.quadro.h) {            // primeira imagem, ou o telemovel rodou
     VIVO.quadro = { w: FW, h: FH };
     VIVO.procura = { cx: FW / 2, cy: FH / 2, z: 1 };
-    seg.largar();
+    seg.largar(); vivoSemAlvo();
+    VIVO.estilo = ""; VIVO.pintado = ""; redesenhar = true;
   }
-  let roi = seg.temAlvo() ? seg.recorte(FW, FH) : null;
-  if (!roi) {
-    const lado = Math.min(FW, FH) / VIVO.procura.z;
-    roi = { lado, x: Math.max(0, Math.min(FW - lado, VIVO.procura.cx - lado / 2)), y: Math.max(0, Math.min(FH - lado, VIVO.procura.cy - lado / 2)) };
+  // Com um alvo (ou uma pista) analisa-se o recorte justo a volta dele; sem nada, ou
+  // quando ele se perde, a zona de procura inteira.
+  const justo = seg.recorte(FW, FH);
+  const largo = !justo || seg.perdido() >= 3;
+  let roi = justo;
+  if (largo) {
+    roi = vivoRegiao();
+    // Reduzida para a analise, a zona de procura perde os alvos mais pequenos. Por isso
+    // alterna-se: uma vez a zona toda, a seguinte so o meio dela com mais pormenor, ate
+    // ao pormenor todo da camara.
+    const niveis = Math.max(1, Math.min(3, Math.round(Math.log2(roi.lado / VIVO_R)) + 1));
+    const nivel = VIVO.volta++ % niveis;
+    if (nivel) {
+      const lado = roi.lado / (1 << nivel);
+      roi = { lado, x: roi.x + (roi.lado - lado) / 2, y: roi.y + (roi.lado - lado) / 2 };
+    }
   }
-  VIVO.roi = roi;
   let dados;
   try {
     VIVO.pincel.drawImage(v, roi.x, roi.y, roi.lado, roi.lado, 0, 0, VIVO_R, VIVO_R);
     dados = VIVO.pincel.getImageData(0, 0, VIVO_R, VIVO_R).data;
-  } catch (e) { return; }
+  } catch (e) { return 300; }
   vivoCanal(dados, VIVO_R * VIVO_R, VIVO.canal);
-  const res = seg.passo(VIVO.canal, VIVO_R, { x0: roi.x, y0: roi.y, k: roi.lado / VIVO_R });
-  VIVO.escala = res.escala || 0;
+  // o centro da imagem, que e para onde se aponta o telemovel e de onde o zoom da camara amplia
+  const centro = { cx: FW / 2, cy: FH / 2, raio: 0.22 * Math.min(FW, FH) };
+  const res = seg.passo(VIVO.canal, VIVO_R, { x0: roi.x, y0: roi.y, k: roi.lado / VIVO_R, centro }, largo);
+
+  const marca = (p) => (p ? Math.round(p.cx) + "," + Math.round(p.cy) + "," + Math.round(p.r) : "");
+  const antes = VIVO.fase + "|" + marca(VIVO.candidato), procuravaAntes = VIVO.fase === "procura";
+  const segue = seg.temAlvo();
+  VIVO.escala = segue ? res.escala || 0 : 0;
   VIVO.pequeno = res.pequeno || 0;
-  if (res.estado === "sem-alvo") VIVO.fase = seg.temAlvo() ? "perdido" : "procura";
-  else VIVO.fase = res.estado;
-  if (VIVO.fase === "procura") VIVO.zoomFeito = false;
-  // O alvo ve-se mas e pequeno demais, e a camara tem zoom: aproxima-se sozinha, ate onde
-  // o alvo continuar dentro da imagem.
-  if (res.pequeno && res.candidato && VIVO.zoom && !VIVO.aZoom) {
-    const alvo = res.candidato, meio = seg.Rv * res.pequeno * VIVO_FOLGA;
-    VIVO.margem = Math.min((FW / 2) / (Math.abs(alvo.cx - FW / 2) + meio), (FH / 2) / (Math.abs(alvo.cy - FH / 2) + meio));
-    const f = Math.min(VIVO.zoom.max / VIVO.zoom.valor, VIVO.margem * 0.92);
-    if (f >= 1.2) {
-      VIVO.aZoom = true;
-      vivoAplicarZoom(VIVO.zoom.valor * f).then(() => { VIVO.aZoom = false; }, () => { VIVO.aZoom = false; });
-      return;
+  VIVO.candidato = !segue && res.candidato ? res.candidato : null;
+  VIVO.ancorado = seg.ancorado();
+  VIVO.fase = !segue ? "procura" : res.estado === "sem-alvo" ? "perdido" : res.estado;
+  if (segue) {
+    VIVO.semAlvoDesde = 0;
+    if (res.vista && vivoAtualizarVista(res.vista)) redesenhar = true;
+    if (VIVO.vista) {
+      if (E.foto !== VIVO.video) redesenhar = true;
+      vivoAplicarVista(VIVO.escala);
+      // se o alvo se perder, procura-se a volta de onde ele estava
+      VIVO.procura.cx = VIVO.vista.cx; VIVO.procura.cy = VIVO.vista.cy;
     }
+  } else {
+    if (VIVO.vista) { VIVO.vista = null; redesenhar = true; }
+    if (E.foto === VIVO.video) E.foto = null;
+    if (!VIVO.semAlvoDesde) VIVO.semAlvoDesde = t0;
   }
-  // Acabado de encontrar o alvo: aproxima-se com o zoom da camara ate ele encher a imagem,
-  // sem o deixar sair pelos lados. Faz-se uma vez, antes de fixar a referencia.
-  if (VIVO.fase === "a-preparar" && VIVO.zoom && !VIVO.zoomFeito && res.disco) {
-    VIVO.zoomFeito = true;
-    const meio = seg.Rv * res.escala * VIVO_FOLGA;
-    VIVO.margem = Math.min((FW / 2) / (Math.abs(res.disco.cx - FW / 2) + meio), (FH / 2) / (Math.abs(res.disco.cy - FH / 2) + meio));
-    const f = Math.min(VIVO.zoom.max / VIVO.zoom.valor, VIVO.margem * 0.92);
-    if (f >= 1.2) { vivoAplicarZoom(VIVO.zoom.valor * f); return; }
+
+  /* zoom da camara, enquanto o utilizador nao pegar nele */
+  if (VIVO.zoom && VIVO.zoomAuto) {
+    const z = VIVO.zoom;
+    // quanto se pode aproximar sem o alvo sair da imagem pelos lados
+    const caber = (p, escala) => {
+      const meio = seg.Rv * escala * VIVO_FOLGA;
+      return Math.min((FW / 2) / (Math.abs(p.cx - FW / 2) + meio), (FH / 2) / (Math.abs(p.cy - FH / 2) + meio));
+    };
+    let f = 0;
+    if (res.pequeno && res.candidato) {
+      // o alvo ve-se mas e pequeno demais: aproxima ate onde der
+      VIVO.margem = caber(res.candidato, res.pequeno);
+      f = Math.min(z.max / z.valor, VIVO.margem * 0.92);
+      if (f < 1.2) f = 0;
+    } else if (segue && VIVO.fase !== "perdido" && res.quietos >= 2 && res.disco && t0 - VIVO.zoomEm > 2500) {
+      // Alvo encontrado e parado: enche a imagem com ele. Acontece ao encontra-lo, antes de
+      // fixar a referencia, e outra vez se o telemovel for reapontado e o alvo ficar noutro
+      // sitio da imagem; com tudo parado a conta da sempre 1 e nao se mexe em nada.
+      VIVO.margem = caber(res.disco, res.escala);
+      f = Math.max(z.min / z.valor, Math.min(z.max / z.valor, VIVO.margem * 0.92));
+      if (f > 0.8 && f < 1.3) f = 0;
+    } else if (!segue && !res.candidato && z.valor > z.min * 1.05 && t0 - VIVO.semAlvoDesde > 4000) {
+      // sem alvo ha uns segundos e com a imagem aproximada: afasta, para se ver o campo todo
+      f = z.min / z.valor;
+      VIVO.semAlvoDesde = t0;
+    }
+    if (f) { vivoAplicarZoom(z.valor * f); return 120; }
   }
 
   let mudouSerie = false;
@@ -5192,14 +5564,19 @@ function tiqueVivo() {
   }
   if (res.mudou) aviso("Alvo novo: fixei outra referência.");
 
-  if (VIVO.fase !== "procura" && res.retalho) vivoMostrarRetalho(res.retalho);
-  else if (VIVO.fase === "procura") E.foto = null;
-  if (mudouSerie) pintar();
-  else { pintarAlvo(); pintarVivo(); }
+  if (mudouSerie || procuravaAntes !== (VIVO.fase === "procura")) pintar();
+  else {
+    if (redesenhar || antes !== VIVO.fase + "|" + marca(VIVO.candidato)) pintarAlvo();
+    pintarVivo();
+  }
+  const custo = Date.now() - t0;
+  VIVO.custo = VIVO.custo ? VIVO.custo + (custo - VIVO.custo) * 0.2 : custo;
+  return Math.max(130, Math.min(900, 3 * custo));
 }
 
-/* Enquanto nao ha alvo a seguir, o ecra mostra a imagem da camara tal como e,
-   com uma mira ao centro: tocar aproxima e centra nesse ponto. */
+/* Enquanto nao ha alvo a seguir, o ecra mostra a imagem da camara tal como e. A
+   tela so desenha, por cima, um circulo a volta do que a app julga ser o alvo ou,
+   sem isso, uma mira ao centro: tocar na imagem aproxima e centra nesse ponto. */
 function pintarProcura() {
   const lado = cv.clientWidth;
   if (!lado) return;
@@ -5207,23 +5584,42 @@ function pintarProcura() {
   if (cv.width !== px) { cv.width = px; cv.height = px; }
   const c = cv.getContext("2d");
   c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  c.fillStyle = "#000000";
-  c.fillRect(0, 0, lado, lado);
-  if (VIVO.recorte && VIVO.roi) c.drawImage(VIVO.recorte, 0, 0, lado, lado);
-  const m = lado / 2, r = lado * 0.13;
-  c.strokeStyle = cores().ultimo; c.lineWidth = 2;
-  c.beginPath();
-  c.arc(m, m, r, 0, TAU);
-  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { c.moveTo(m + dx * r * 0.55, m + dy * r * 0.55); c.lineTo(m + dx * r * 1.6, m + dy * r * 1.6); }
-  c.stroke();
+  c.clearRect(0, 0, lado, lado);
+  const cor = cores().ultimo;
+  // um traco escuro por baixo do colorido, para se ver sobre qualquer imagem
+  const tracar = (caminho) => {
+    c.lineWidth = 4.5; c.strokeStyle = "rgba(0, 0, 0, 0.45)";
+    c.beginPath(); caminho(); c.stroke();
+    c.lineWidth = 2; c.strokeStyle = cor;
+    c.beginPath(); caminho(); c.stroke();
+  };
+  if (VIVO.candidato && VIVO.quadro.w) {
+    const roi = vivoRegiao(), s = lado / roi.lado, p = VIVO.candidato;
+    tracar(() => c.arc((p.cx - roi.x) * s, (p.cy - roi.y) * s, Math.max(p.r * s * 1.7, 14), 0, TAU));
+    return;
+  }
+  // A mira marca o centro da imagem da camara: e para la que se aponta o telemovel, e
+  // de la que o zoom da camara amplia. Se a vista foi aproximada para outro sitio, nao ha mira.
+  if (!VIVO.quadro.w) return;
+  const roi = vivoRegiao(), s = lado / roi.lado;
+  const mx = (VIVO.quadro.w / 2 - roi.x) * s, my = (VIVO.quadro.h / 2 - roi.y) * s, r = lado * 0.13;
+  if (mx < r || my < r || mx > lado - r || my > lado - r) return;
+  tracar(() => {
+    c.arc(mx, my, r, 0, TAU);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { c.moveTo(mx + dx * r * 0.55, my + dy * r * 0.55); c.lineTo(mx + dx * r * 1.6, my + dy * r * 1.6); }
+  });
 }
 function vivoTocar(ev) {
-  if (!VIVO.roi) return;
-  const caixa = cv.getBoundingClientRect();
-  VIVO.procura.cx = VIVO.roi.x + (ev.clientX - caixa.left) / caixa.width * VIVO.roi.lado;
-  VIVO.procura.cy = VIVO.roi.y + (ev.clientY - caixa.top) / caixa.height * VIVO.roi.lado;
+  vivoArrancarVideo();
+  if (!VIVO.quadro.w) return;
+  const caixa = cv.getBoundingClientRect(), roi = vivoRegiao(), lado = cv.clientWidth || caixa.width;
+  VIVO.procura.cx = roi.x + (ev.clientX - caixa.left - (cv.clientLeft || 0)) / lado * roi.lado;
+  VIVO.procura.cy = roi.y + (ev.clientY - caixa.top - (cv.clientTop || 0)) / lado * roi.lado;
   if (VIVO.procura.z < 16) VIVO.procura.z *= 2;
-  pintarVivo();
+  // O toque diz onde esta o alvo: o que se seguia ou se tinha posto de parte deixa de contar.
+  if (VIVO.seguidor) VIVO.seguidor.largar(true);
+  vivoSemAlvo();
+  pintarAlvo(); pintarVivo();
 }
 
 /* painel do modo ao vivo */
@@ -5233,37 +5629,48 @@ function pintarVivo() {
   // so mexe na pagina quando alguma coisa do painel muda (isto corre varias vezes por segundo)
   const pequeno = VIVO.pequeno * E.calibre;
   const chave = [visivel, VIVO.fase, VIVO.erro, VIVO.aLigar, segue ? Math.round(pf * 2) : 0, Math.round(pequeno * 5), VIVO.lentes.length, VIVO.lente, VIVO.procura.z,
-    VIVO.zoom ? VIVO.zoom.valor.toFixed(1) : "", VIVO.quadro.w, VIVO.quadro.h].join("|");
+    VIVO.zoom ? VIVO.zoom.valor.toFixed(1) : "", VIVO.zoomAuto, VIVO.ancorado, VIVO.quadro.w, VIVO.quadro.h, Math.round(VIVO.custo / 5)].join("|");
   if (chave === VIVO.pintado) return;
   VIVO.pintado = chave;
   $("vivo-ctl").hidden = !visivel;
   $("btn-vivo").setAttribute("aria-pressed", String(VIVO.ligado || VIVO.aLigar));
   if (!visivel) return;
+  const maisZoom = VIVO.zoom && VIVO.zoom.valor < VIVO.zoom.max * 0.98;
   let estado, nota = "";
   if (VIVO.erro) estado = VIVO.erro;
   else if (VIVO.aLigar || VIVO.fase === "a-pedir") estado = "A ligar a câmara…";
   else if (VIVO.fase === "procura" && pequeno > 0) {
-    estado = "Vejo o alvo, mas muito pequeno: " + nf1.format(pequeno) + " px por furo. São precisos pelo menos " + nf1.format(VIVO_MIN_FURO) + ".";
-    nota = VIVO.zoom && VIVO.zoom.valor < VIVO.zoom.max * 0.98
-      ? "Aponta o telemóvel de modo a o alvo ficar ao centro da imagem: assim a câmara consegue aproximar mais."
+    estado = "Vejo o alvo, mas muito pequeno: " + nf1.format(pequeno) + " px por furo. São precisos " + nf1.format(VIVO_MIN_FURO) + " para marcar os tiros.";
+    nota = maisZoom
+      ? (VIVO.zoomAuto ? "Aponta o telemóvel de modo a o alvo ficar ao centro da imagem: assim a câmara consegue aproximar mais." : "Aumenta o zoom da câmara, com o alvo ao centro da imagem.")
       : "Esta câmara não aproxima mais. Experimenta outra lente, ou põe o telemóvel atrás de um telescópio ou monóculo.";
   }
-  else if (VIVO.fase === "procura") { estado = "Aponta para o alvo e toca nele para aproximar."; nota = "O telemóvel tem de ficar parado: usa um tripé ou um apoio firme."; }
-  else if (VIVO.fase === "perdido") estado = "Perdi o alvo de vista. Volta a apontar o telemóvel.";
+  else if (VIVO.fase === "procura" && VIVO.ancorado) {
+    estado = "Perdi o alvo de vista. Fico à espera dele no mesmo sítio.";
+    nota = "Se mexeste no telemóvel, põe o alvo dentro do círculo, ao centro da imagem, ou toca nele.";
+  }
+  else if (VIVO.fase === "procura") {
+    estado = "À procura do alvo. Aponta o telemóvel de modo a vê-lo dentro do círculo, ao centro da imagem.";
+    nota = VIVO.procura.z > 1
+      ? "Se o alvo se vê muito pequeno, esta câmara não chega lá: " + (maisZoom ? "aumenta o zoom da câmara, " : "") + "escolhe a teleobjetiva ou usa um telescópio. Afastar volta a mostrar a imagem toda."
+      : "Se a app não der com ele, toca no alvo na imagem. O telemóvel tem de ficar parado: usa um tripé ou um apoio firme.";
+  }
+  else if (VIVO.fase === "perdido") estado = "Deixei de ver o alvo…";
   else if (VIVO.fase === "a-preparar") estado = "Alvo encontrado. Não mexas no telemóvel enquanto fixo a imagem de referência…";
-  else if (VIVO.fase === "a-mexer") estado = "A imagem está a mexer. Espero que pare.";
+  else if (VIVO.fase === "a-mexer") estado = "A imagem está a mexer. Espero que pare para voltar a marcar impactos.";
   else if (vivoPodeMarcar()) estado = "A seguir o alvo: cada impacto novo é marcado sozinho.";
   else estado = "A seguir o alvo. Marca os tiros com o dedo sobre a imagem: a resolução não chega para os marcar sozinho.";
-  if (segue && pf > 0) {
+  if (segue && pf > 0 && VIVO.fase !== "perdido") {
     nota = nf1.format(pf) + " px por furo: "
       + (pf >= 8 ? "boa resolução." : pf >= VIVO_MIN_FURO ? "resolução suficiente. Confirma os tiros junto às linhas." : "resolução baixa. Escolhe a teleobjetiva, aumenta o zoom ou usa um telescópio.");
-    if (pf < VIVO_MIN_FURO && VIVO.zoom && VIVO.zoom.valor < VIVO.zoom.max * 0.98 && VIVO.margem > 0 && VIVO.margem < 1.3) nota += " Para aproximar mais, centra o alvo na imagem e toca em Procurar outro alvo.";
+    if (pf < VIVO_MIN_FURO && maisZoom && VIVO.zoomAuto && VIVO.margem > 0) nota += " A câmara aproxima mais se apontares o telemóvel de modo a o alvo ficar ao centro da imagem.";
   }
   // o que a camara esta mesmo a entregar: serve para perceber porque e que a resolucao chega ou nao
   const lenteAtual = VIVO.lentes.find((d) => d.deviceId === VIVO.lente);
   const info = VIVO.ligado && VIVO.quadro.w
     ? "Câmara: " + (lenteAtual ? lenteAtual.label + " · " : "") + VIVO.quadro.w + " × " + VIVO.quadro.h + " px"
       + (VIVO.zoom ? " · zoom ×" + nf1.format(VIVO.zoom.valor) + " (até ×" + nf1.format(VIVO.zoom.max) + ")" : " · sem zoom da câmara")
+      + (VIVO.custo ? " · análise " + Math.max(5, Math.round(VIVO.custo / 5) * 5) + " ms" : "")
     : "";
   $("vivo-info").textContent = info;
   $("vivo-info").hidden = !info;
@@ -5286,22 +5693,25 @@ function pintarVivo() {
   }
   $("vivo-menos").hidden = !(vivoEmProcura() && VIVO.procura.z > 1);
   $("vivo-ref").hidden = !(segue && VIVO.fase !== "perdido");
-  $("vivo-procurar").hidden = !segue;
+  $("vivo-procurar").hidden = !(segue || (VIVO.ligado && VIVO.ancorado));
   $("vivo-parar").hidden = !(VIVO.ligado || VIVO.aLigar);
 }
 
 $("btn-vivo").addEventListener("click", () => { if (VIVO.ligado || VIVO.aLigar) desligarVivo(); else ligarVivo(); });
 $("vivo-parar").addEventListener("click", desligarVivo);
-$("vivo-menos").addEventListener("click", () => { VIVO.procura.z = Math.max(1, VIVO.procura.z / 2); pintarVivo(); });
+$("vivo-menos").addEventListener("click", () => { VIVO.procura.z = Math.max(1, VIVO.procura.z / 2); pintarAlvo(); pintarVivo(); });
 $("vivo-ref").addEventListener("click", () => { if (VIVO.seguidor) { VIVO.seguidor.referenciaNova(); aviso("A fixar uma referência nova. Não mexas no telemóvel."); } });
 $("vivo-procurar").addEventListener("click", () => {
   if (!VIVO.seguidor) return;
-  VIVO.seguidor.largar();
-  VIVO.fase = "procura"; VIVO.procura.z = 1; VIVO.zoomFeito = false; VIVO.margem = 0; E.foto = null;
+  // Este nao era o alvo certo: poe-no de parte, mostra o campo todo e procura outro.
+  VIVO.seguidor.outro();
+  vivoSemAlvo();
+  VIVO.procura.z = 1; VIVO.zoomAuto = true; VIVO.margem = 0;
+  if (VIVO.zoom && VIVO.zoom.valor > VIVO.zoom.min * 1.05) vivoAplicarZoom(VIVO.zoom.min);
   pintar();
 });
 $("vivo-lente").addEventListener("change", () => { const id = $("vivo-lente").value; if (id && id !== VIVO.lente) ligarVivo(id); });
-$("vivo-zoom").addEventListener("change", () => { VIVO.zoomFeito = true; vivoAplicarZoom(Number($("vivo-zoom").value)); });
+$("vivo-zoom").addEventListener("change", () => { VIVO.zoomAuto = false; vivoAplicarZoom(Number($("vivo-zoom").value)); });
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible" || !VIVO.ligado) return;
   // Ao voltar a app, o telemovel pode ter parado a camara.

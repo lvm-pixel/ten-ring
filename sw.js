@@ -1,7 +1,7 @@
 /* Service worker do Ten Ring: guarda a app para abrir sem rede.
    Responde com a copia guardada e vai buscar a nova em segundo plano, por isso
    uma versao nova aparece na abertura seguinte. */
-const CACHE = "caderno109-e219de92a2";
+const CACHE = "caderno109-076fdf9c94";
 const BASE = ["./", "index.html", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {
